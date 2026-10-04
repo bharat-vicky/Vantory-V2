@@ -1,239 +1,75 @@
-# Vantory — Career Advantage + Career Direction
+# Vantory
 
-Vantory is an industry-grade, full-stack career platform and recruitment intelligence system built with **Next.js 15 App Router**, **TypeScript**, **TailwindCSS**, **Prisma**, **PostgreSQL**, and **Google Gemini AI**.
+A career and recruitment platform for candidates, companies, and academic institutes. Built with Next.js 15, React 19, TypeScript, Tailwind CSS, Prisma 6, MongoDB, and Google Gemini.
 
-It seamlessly bridges the gap between job candidates, corporate employers, and academic placement institutes by offering real-time ATS resume analysis, job-matching intelligence, adaptive AI mock interviews, and automated recruitment pipelines.
+Features include resume editing and PDF export, ATS analysis, job applications, AI mock interviews, preparation workspaces, institute analytics, and support tickets.
 
----
+## Local setup
 
-## 🌟 Key Features
+Use Node.js 22 and npm. Run `npm ci` for reproducible installs using the committed lockfile.
 
-### 📄 1. ATS Resume Intelligence & Scoring Engine v2.1
-- **Multi-Score Analytics**: Calculates **ATS Compatibility Score**, **Job Match Score**, and **Overall Application Score** (0–100%).
-- **Deterministic Skill Taxonomy**: Normalizes 500+ technology aliases (e.g., `Node.js` ↔ `NodeJS` ↔ `Node`) with exact, alias, and semantic category matching.
-- **Truth Guard System**: Audits candidate resume claims against mandatory job requirements to flag unverified or weak evidence.
-- **Bullet Quality Auditor**: Evaluates action verbs, quantifiable metrics, and impact statements across resume bullet points.
-- **Score Improvement Simulator**: Interactive calculator showing candidate potential score gain by adding missing skills.
+Copy `.env.example` to `.env` and replace placeholders locally. Never commit credentials.
 
-### 🎙️ 2. Adaptive AI Mock Interview System
-- **Personalized Context Builder**: Fuses candidate resume data and target Job Description into a Candidate Intelligence Profile.
-- **Dynamic State Machine Engine**: Tracks global and domain-specific candidate proficiency in real time across 5 difficulty levels (`Novice` to `Principal`).
-- **Adaptive Follow-Up Generator**: Analyzes response depth, technical accuracy, and completeness to trigger deep-dive follow-up questions.
-- **Text & Voice Interaction**: Full support for real-time speech-to-text input (Web Speech API) and text-to-speech question playback.
-- **Comprehensive Interview Reports**: Generates final score breakdowns, role readiness ratings, question-by-question reviews, and a 7-day personalized preparation plan.
+- `MONGODB_URI`: MongoDB Atlas connection string. Prisma transactions require a replica set. URL-encode special characters in credentials.
+- `JWT_SECRET`: a unique random secret of at least 32 characters.
+- `NEXT_PUBLIC_APP_URL`: `http://localhost:3000` for development.
+- Google OAuth, Gemini, and SMTP settings: configure these to enable corresponding features. Authentication emails require working SMTP.
 
-### 🏢 3. Corporate Employer Portal
-- **Job Management Engine**: Create, edit, close, reopen, and **republish** job openings (resets timestamp for marketplace visibility bump).
-- **Candidate Pipeline Tracking**: Review candidate applications, inspect ATS scores, update application states (`APPLIED` → `SHORTLISTED` → `OFFERED`), and download candidate resumes.
-- **Optional Company Branding**: Add optional company website links to public listings.
+Generate a secret locally:
 
-### 🎓 4. Academic Institute Portal
-- **Placement Dashboard**: Track student enrollment, resume uploads, ATS average scores, and interview performance metrics across departments.
-- **Bulk CSV Student Import**: Upload student rosters with automated validation and account creation.
-- **Student Performance Reports**: Deep-dive analytics per student for institutional placement drives.
-
-### 📧 5. Real-Time Nodemailer Support System
-- **Gmail SMTP Integration**: Real-time email dispatch using App Password authentication.
-- **Fail-Safe JSON Transport**: Graceful fallback mechanism preventing lost inquiries if SMTP services are unavailable.
-- **Floating Contact Modal**: Industrial call button with green live status pulse.
-
----
-
-## 📐 System Architecture
-
-```text
-                  ┌─────────────────────────────────────────┐
-                  │          SkillAssociate Platform        │
-                  └────────────────────┬────────────────────┘
-                                       │
-            ┌──────────────────────────┼──────────────────────────┐
-            ▼                          ▼                          ▼
-  ┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
-  │ Candidate Portal │       │  Employer Portal │       │ Institute Portal │
-  └─────────┬────────┘       └─────────┬────────┘       └─────────┬────────┘
-            │                          │                          │
-            └──────────────────────────┼──────────────────────────┘
-                                       │
-                                       ▼
-                   ┌──────────────────────────────────────┐
-                   │    Core Intelligence Engines         │
-                   ├──────────────────────────────────────┤
-                   │  • ATS Scoring Engine v2.1           │
-                   │  • Adaptive AI Mock Interview Engine │
-                   │  • Gemini AI Resume Refiner          │
-                   │  • PDF Export & LaTeX Compiler       │
-                   └───────────────────┬──────────────────┘
-                                       │
-                                       ▼
-                   ┌──────────────────────────────────────┐
-                   │      Data & Storage Foundation       │
-                   ├──────────────────────────────────────┤
-                   │  • SQLite Database (Prisma ORM)     │
-                   │  • JWT Auth & Role Authorization     │
-                   │  • Nodemailer Gmail SMTP Dispatch    │
-                   └──────────────────────────────────────┘
+```sh
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
----
+Initialize the selected development database, then start the app:
 
-## 🛠️ Technology Stack
-
-| Layer | Technology |
-| :--- | :--- |
-| **Framework** | [Next.js 15.1 (App Router)](https://nextjs.org/) |
-| **Language** | [TypeScript 5.x](https://www.typescriptlang.org/) |
-| **Styling** | [TailwindCSS 3.4](https://tailwindcss.com/), [Framer Motion](https://www.framer.com/motion/) |
-| **Icons** | [Lucide React](https://lucide.dev/) |
-| **Database** | [SQLite](https://www.sqlite.org/) with [Prisma ORM 6.4](https://www.prisma.io/) |
-| **Authentication** | Custom JWT Session Cookies ([jose](https://github.com/panva/jose), `bcryptjs`) |
-| **AI Integration** | [Google Gemini API (`@google/genai`)](https://ai.google.dev/) |
-| **Email Dispatch** | [Nodemailer](https://nodemailer.com/) (Gmail SMTP) |
-| **PDF Processing** | [PDFKit](https://pdfkit.org/), `html2pdf.js` |
-| **Testing** | Node.js Native Test Runner (`tsx --test`) |
-
----
-
-## 📁 Repository Structure
-
-```text
-SkillAssociate/
-├── app/                        # Next.js 15 App Router Pages & API Endpoints
-│   ├── (dashboard)/            # Authenticated Dashboard Layout & Views
-│   │   ├── ats-checker/        # ATS Resume Analysis & Score Simulator
-│   │   ├── company/            # Employer Management Views (Jobs, Applications)
-│   │   ├── institute/          # Placement Officer Portal (Students, Analytics)
-│   │   ├── jobs/               # Candidate Marketplace & Job Details
-│   │   ├── mock-interview/     # Adaptive AI Mock Interview Wizard & Room
-│   │   └── resume/             # Interactive Resume Builder
-│   └── api/                    # RESTful API Endpoints
-│       ├── ats/                # ATS Scan API
-│       ├── company/            # Employer Management Endpoints
-│       ├── institute/          # Institute Analytics & Student Endpoints
-│       ├── interview/          # Mock Interview Session State Machine API
-│       ├── jobs/               # Candidate Job Marketplace API
-│       └── support/            # Support Email Dispatch API
-├── components/                 # Modular UI Components
-│   ├── company/                # Create/Edit Job Modals & Applicant Cards
-│   ├── interview/              # Setup Wizard, Interview Room, Report View
-│   ├── support/                # Floating Call Icon & Nodemailer Contact Form
-│   └── ui/                     # Reusable Modern UI Primitives
-├── lib/                        # Core Application Logic & Intelligence Engines
-│   ├── ai/                     # Gemini AI Provider Integration
-│   ├── ats/                    # Taxonomy, Parsers, Scoring Engine v2.1, Prompt Guard
-│   ├── auth/                   # Password Hashing, JWT Sign/Verify, Role Guards
-│   ├── company/                # Employer Job & Application Service Layer
-│   ├── email/                  # Nodemailer Transport & Email Dispatcher
-│   ├── institute/              # Institute Analytics & CSV Parser Service
-│   ├── interview/              # Interview Engine, Context Builder, AI Evaluator
-│   └── resume/                 # Resume Data Types & PDF Export Engine
-├── prisma/                     # Database Schema & Migrations
-│   └── schema.prisma           # Prisma Data Model
-├── public/                     # Static Public Assets
-├── tests/                      # Automated Unit & Integration Tests (15 Files)
-├── .env.example                # Template Environment File
-├── package.json                # Project Dependencies & NPM Scripts
-└── tsconfig.json               # TypeScript Configuration
+```sh
+npm run db:generate
+npm run db:push
+npm run dev
 ```
 
----
+Prisma's MongoDB connector uses `db push`, rather than SQL migrations. Database backups are local-only and ignored.
 
-## 🚀 Getting Started
+## Checks before pushing
 
-### Prerequisites
-
-- **Node.js**: `v20.x` or higher
-- **npm**: `v10.x` or higher
-
-### Installation
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/ANUPAM4545/Skill--Associate.git
-   cd Skill--Associate
-   ```
-
-2. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables**:
-   Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-   Fill in your desired environment variables in `.env`:
-   ```env
-   DATABASE_URL="file:./dev.db"
-   JWT_SECRET="your-jwt-secret-key"
-   NEXT_PUBLIC_APP_URL="http://localhost:3000"
-   GEMINI_API_KEY="your-gemini-api-key"
-   SUPPORT_RECIPIENT_EMAIL="anupamsingh8095@gmail.com"
-   SMTP_HOST="smtp.gmail.com"
-   SMTP_PORT=465
-   SMTP_USER="your_email@gmail.com"
-   SMTP_PASS="your_gmail_app_password"
-   ```
-
-4. **Initialize Database**:
-   Push the Prisma schema to create local SQLite database:
-   ```bash
-   npx prisma db push
-   ```
-
-5. **Start Development Server**:
-   ```bash
-   npm run dev
-   ```
-   Open `http://localhost:3000` (or `http://localhost:3005`) in your browser.
-
----
-
-## 🧪 Testing & Quality Assurance
-
-SkillAssociate contains a 15-file automated test suite covering authentication, ATS scoring, interview state transitions, PDF compilers, and job application workflows.
-
-Run all tests:
-```bash
-npm test
-```
-
-Run TypeScript compilation check:
-```bash
-npx tsc --noEmit
-```
-
-Run ESLint audit:
-```bash
+```sh
+npm run security:check
+npm run security:history
+npm run typecheck
 npm run lint
-```
-
----
-
-## 📦 Production Build
-
-To verify and generate an optimized production bundle:
-
-```bash
+npm test
 npm run build
+npm audit
+git status --short
+git diff --cached --stat
 ```
 
-To start the production server:
-```bash
-npm start
-```
+The secret checker scans tracked and non-ignored files for common credential patterns and values from the local `.env`; `security:history` also checks reachable Git objects. It reports paths and credential names without printing values. Pattern checks cannot guarantee detection of every secret. If a credential was committed, rotate it and remove it from history before publishing.
 
----
+Keep `.env.example`, this README, and technical documentation under `docs/` in the repository. Internal planning and research documents, credentials, local databases, build output, and agent configuration are ignored. Ignore rules do not remove earlier commits; previously committed documents remain available in history.
 
-## 🔒 Security & Privacy
+## Deploy to Vercel
 
-- **No Hardcoded Secrets**: All API keys, SMTP passwords, and JWT credentials are read exclusively from environment variables.
-- **Input Sanitization**: User-submitted job descriptions and resume text are sanitized against prompt injection and malicious payload injections.
-- **Encrypted Password Hashing**: Passwords hashed using `bcryptjs` with salt rounds.
-- **HttpOnly Cookies**: Session tokens stored in secure, `SameSite=Lax` cookies.
+1. Push the reviewed source and lockfile to GitHub, then import the repository into Vercel.
+2. Select the **Next.js** framework preset, repository root, and **Node.js 22.x**. Use `npm ci` to install and `npm run build` to build. Keep default Next.js output settings; static export cannot serve this app's API routes.
+3. Add environment variables in Vercel before building. Use separate databases and credentials for Preview and Production. Keep production credentials out of untrusted pull request previews.
+4. Set `MONGODB_URI`, a random `JWT_SECRET`, and `NEXT_PUBLIC_APP_URL` with the exact HTTPS deployment domain. Configure Atlas network access and a database user with the permissions the app needs.
+5. Set Google OAuth credentials and `GOOGLE_REDIRECT_URI` to `https://YOUR-DOMAIN/api/auth/google/callback`. Register that exact callback in Google Cloud. Use separately configured OAuth credentials for previews if needed.
+6. Configure `GEMINI_API_KEY`, model names, and SMTP credentials. Set the support recipient and optional `SMTP_FROM`. Only public URLs and contact information belong in `NEXT_PUBLIC_*` variables; this prefix exposes values to browsers.
+7. Run `npm run db:push` once from a trusted environment configured for the intended production database. Review schema changes before repeating it. The build generates Prisma Client; it does not change the schema.
+8. Deploy and check registration/login, OAuth, password reset and verification emails, resume PDF export, ATS/AI requests, jobs, and support ticket delivery. `/api/health` checks app availability; it does not verify database or provider connectivity.
 
----
+Optional code execution requires a separately hosted, patched Judge0 service with execution network access disabled. Configure `JUDGE0_URL` and `JUDGE0_TOKEN` only on the server.
 
-## 📄 License
+Support retries use an external scheduler that sends **POST** to `/api/internal/support-dispatch` with `Authorization: Bearer <CRON_SECRET>`. Use an independent random secret of at least 32 characters. Vercel Cron invokes routes using GET, so this POST endpoint cannot be scheduled directly with a Vercel cron entry.
 
-This project is licensed under the [MIT License](LICENSE).
+The rate limiter stores counters in process memory. Limits are not shared across Vercel instances and reset on cold starts. Use a shared store before relying on strict global quotas or abuse protection.
+
+### Verification and remaining limitations
+
+The preparation checks passed all 126 unit tests, TypeScript checks, lint (with existing warnings), and a production build. The build ran locally on Node.js 20.15; use Node.js 22 for deployment and repeat external service checks there.
+
+The production dependency audit reports zero vulnerabilities. The full audit still reports seven high severity findings through the unpatched `braces` dependency in Tailwind 3 and ESLint build tooling. Avoid `npm audit fix --force` without reviewing proposed framework and Tailwind major upgrades. Recheck advisories before deployment and plan the tooling upgrade or replacement.
+
+Reference documentation: [Vercel Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions), [public framework environment variables](https://vercel.com/docs/environment-variables/framework-environment-variables), and [Vercel Cron](https://vercel.com/docs/cron-jobs).

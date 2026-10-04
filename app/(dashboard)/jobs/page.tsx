@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Briefcase,
@@ -59,6 +59,7 @@ export default function JobsMarketplacePage() {
   const [workMode, setWorkMode] = useState<string>("ALL");
   const [experience, setExperience] = useState<string>("ALL");
   const [datePosted, setDatePosted] = useState<string>("ALL");
+  const [loadError,setLoadError]=useState("");
   const [salaryRange, setSalaryRange] = useState<string>("ALL");
   const [selectedSkill, setSelectedSkill] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"recent" | "relevance" | "salary" | "experience">("recent");
@@ -88,7 +89,9 @@ export default function JobsMarketplacePage() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
+  const jobsRequestSequence=useRef(0);
   const fetchJobs = useCallback(async () => {
+    const sequence=++jobsRequestSequence.current;
     setIsLoading(true);
     try {
       const queryParams = new URLSearchParams();
@@ -104,19 +107,23 @@ export default function JobsMarketplacePage() {
       queryParams.set("limit", "6");
 
       const res = await fetch(`/api/jobs?${queryParams.toString()}`);
+      if(!res.ok)throw new Error("Jobs could not be loaded. Please retry.");
+      if(sequence!==jobsRequestSequence.current)return;
+      setLoadError("");
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
+          if(sequence!==jobsRequestSequence.current)return;
           setJobs(json.jobs || []);
           setTotalCount(json.totalCount || 0);
           setTotalPages(json.totalPages || 1);
           setActiveOpeningsCount(json.activeOpeningsCount || 0);
         }
       }
-    } catch {
-      // Handle silently
+    } catch(e) {
+      if(sequence===jobsRequestSequence.current)setLoadError(e instanceof Error ? e.message : "Unable to load jobs.");
     } finally {
-      setIsLoading(false);
+      if(sequence===jobsRequestSequence.current)setIsLoading(false);
     }
   }, [debouncedQuery, jobType, workMode, experience, datePosted, salaryRange, selectedSkill, sortBy, page]);
 
@@ -127,7 +134,7 @@ export default function JobsMarketplacePage() {
   const handleToggleSave = async (jobId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`/api/jobs/${jobId}/save`, { method: "POST" });
+      const res = await fetch(`/api/jobs/${jobId}/save`, { method: jobs.find(j=>j.id===jobId)?.isSaved ? "DELETE":"POST" });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -136,8 +143,8 @@ export default function JobsMarketplacePage() {
           );
         }
       }
-    } catch {
-      // Handle silently
+    } catch(e) {
+      setLoadError(e instanceof Error ? e.message : "Unable to load jobs.");
     }
   };
 
@@ -156,6 +163,7 @@ export default function JobsMarketplacePage() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-950 font-sans p-6 md:p-10 space-y-8">
+      {loadError && <p role="alert" className="p-4 bg-amber-50 rounded-xl">{loadError} <button className="underline" onClick={fetchJobs}>Retry</button></p>}
       {/* Hero Header */}
       <div className="border-b border-neutral-200 pb-8 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -260,8 +268,8 @@ export default function JobsMarketplacePage() {
             className="w-full text-xs bg-white border border-neutral-300 rounded-xl px-3 py-3 text-neutral-950 focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 font-mono font-medium"
           >
             <option value="recent">Most Recent</option>
-            <option value="relevance">Relevance</option>
-            <option value="salary">Salary / Stipend</option>
+            <option value="relevance">Search and skill relevance</option>
+            <option value="salary">Annual equivalent salary / stipend</option>
             <option value="experience">Experience Level</option>
           </select>
         </div>
@@ -443,10 +451,10 @@ export default function JobsMarketplacePage() {
                     className="w-full text-xs bg-white border border-neutral-300 rounded-2xl p-3 text-neutral-950 focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 font-bold shadow-2xs"
                   >
                     <option value="ALL">All Salary Ranges</option>
-                    <option value="0-25k">Up to ₹25,000 / mo</option>
-                    <option value="25k-50k">₹25,000 - ₹50,000 / mo</option>
-                    <option value="50k-100k">₹50,000 - ₹1,00,000 / mo</option>
-                    <option value="100k+">₹1,00,000+ / mo</option>
+                    <option value="0-25k">Up to â‚¹25,000 / mo</option>
+                    <option value="25k-50k">â‚¹25,000 - â‚¹50,000 / mo</option>
+                    <option value="50k-100k">â‚¹50,000 - â‚¹1,00,000 / mo</option>
+                    <option value="100k+">â‚¹1,00,000+ / mo</option>
                   </select>
                 </div>
 

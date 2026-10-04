@@ -6,13 +6,21 @@ import { ArrowRight, AlertCircle, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordField } from "./PasswordField";
+import { GoogleAuthButton } from "./GoogleAuthButton";
+import {
+  passwordByteLength,
+  MAX_BCRYPT_PASSWORD_BYTES,
+} from "@/lib/validation/auth";
 
 export interface InstituteRegisterFormProps {
   onSwitchToLogin?: () => void;
   onSuccess?: (redirectUrl: string) => void;
 }
 
-export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteRegisterFormProps) {
+export function InstituteRegisterForm({
+  onSwitchToLogin,
+  onSuccess,
+}: InstituteRegisterFormProps) {
   const router = useRouter();
   const [instituteName, setInstituteName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,10 +29,12 @@ export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteR
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -33,6 +43,10 @@ export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteR
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
+      return;
+    }
+    if (passwordByteLength(password) > MAX_BCRYPT_PASSWORD_BYTES) {
+      setError("Password must not exceed 72 UTF-8 bytes.");
       return;
     }
 
@@ -58,6 +72,13 @@ export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteR
         throw new Error(data.error || "Registration failed.");
       }
 
+      if (data.verificationRequired) {
+        setNotice(
+          "Account created. Check your inbox for a link to verify your email before signing in.",
+        );
+        return;
+      }
+
       const dest = data.user?.redirectUrl || "/institute/dashboard";
       if (onSuccess) {
         onSuccess(dest);
@@ -66,7 +87,9 @@ export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteR
         router.refresh();
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Institute registration failed.");
+      setError(
+        err instanceof Error ? err.message : "Institute registration failed.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -74,6 +97,14 @@ export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteR
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3.5">
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+        >
+          {notice}
+        </p>
+      )}
       {error && (
         <div className="bg-neutral-50 border border-neutral-950 text-neutral-950 p-3 rounded-xl text-xs flex items-center gap-2.5 font-medium animate-in fade-in">
           <AlertCircle className="w-4 h-4 shrink-0 text-neutral-900" />
@@ -138,6 +169,12 @@ export function InstituteRegisterForm({ onSwitchToLogin, onSuccess }: InstituteR
       >
         Register Institute Portal
       </Button>
+
+      <GoogleAuthButton
+        role="institute"
+        isSignup
+        organizationName={instituteName}
+      />
 
       {onSwitchToLogin && (
         <p className="text-center text-xs text-neutral-500 pt-1">

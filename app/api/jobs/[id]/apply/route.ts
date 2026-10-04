@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/authorization";
+import { apiError, ApiError } from "@/lib/api-error";
+import { requireCandidate as getCurrentUser } from "@/lib/auth/authorization";
 import { applyToJob } from "@/lib/jobs/jobs-service";
 
 export async function POST(
@@ -23,7 +24,8 @@ export async function POST(
       );
     }
 
-    const application = await applyToJob(user.id, jobId, resumeId, coverNote);
+    if(typeof body.expectedResumeRevision!=="string" || !Number.isFinite(Date.parse(body.expectedResumeRevision)))throw new ApiError("Refresh and review the selected resume version before submitting.");
+    const application = await applyToJob(user.id, jobId, resumeId, coverNote, body.expectedResumeRevision);
 
     return NextResponse.json({
       success: true,
@@ -32,7 +34,6 @@ export async function POST(
       message: "Application submitted successfully!",
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+    return apiError(error);
   }
 }

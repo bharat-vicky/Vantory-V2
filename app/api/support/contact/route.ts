@@ -1,63 +1,13 @@
-import { NextResponse } from "next/server";
-import { normalizeEmail } from "@/lib/validation/auth";
-import { sendContactEmail } from "@/lib/email/mailer";
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { name, email, phone, subject, message } = body;
-
-    const trimmedName = (name || "").trim();
-    const normalizedEmail = normalizeEmail(email || "");
-    const trimmedPhone = (phone || "").trim();
-    const trimmedSubject = (subject || "").trim();
-    const trimmedMessage = (message || "").trim();
-
-    if (!trimmedName || trimmedName.length < 2) {
-      return NextResponse.json(
-        { success: false, error: "Please enter your name (at least 2 characters)." },
-        { status: 400 }
-      );
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
-      return NextResponse.json(
-        { success: false, error: "Please enter a valid email address." },
-        { status: 400 }
-      );
-    }
-
-    if (!trimmedMessage || trimmedMessage.length < 5) {
-      return NextResponse.json(
-        { success: false, error: "Message must be at least 5 characters long." },
-        { status: 400 }
-      );
-    }
-
-    // Real-time Nodemailer Dispatch
-    const emailResult = await sendContactEmail({
-      name: trimmedName,
-      email: normalizedEmail,
-      phone: trimmedPhone || undefined,
-      subject: trimmedSubject || undefined,
-      message: trimmedMessage,
-    });
-
-    const ticketId = `SUP-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    return NextResponse.json({
-      success: true,
-      message: "Support ticket created successfully.",
-      ticketId,
-      messageId: emailResult.messageId,
-      isRealSmtp: emailResult.isRealSmtp,
-    });
-  } catch (err: unknown) {
-    console.error("Support Contact API Error:", err);
-    return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "We couldn't send your message right now. Please try again." },
-      { status: 500 }
-    );
-  }
-}
+import {NextResponse} from "next/server";
+import {db} from "@/lib/db";
+import {ApiError,apiError} from "@/lib/api-error";
+import {checkRateLimit} from "@/lib/rate-limit";
+export async function POST(request:Request){try{
+ const raw=await request.text();if(raw.length>15000)throw new ApiError("Message is too long.",413);let b;try{b=JSON.parse(raw);}catch{throw new ApiError("Invalid message.");}
+ const field=(key:string,max:number,min=0)=>{if(typeof b?.[key]!=="string" && b?.[key]!==undefined)throw new ApiError("Invalid contact details.");const v=(b?.[key] || "").trim();if(v.length<min || v.length>max)throw new ApiError(`Please check ${key}.`);return v;};
+ const name=field("name",150,2),email=field("email",254,5).toLowerCase(),phone=field("phone",40),subject=field("subject",200),message=field("message",10000,5);
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new ApiError("Enter a valid email.");
+ if(!checkRateLimit(`support:${email}`,3,15*60000).allowed)throw new ApiError("Please wait before creating another ticket.",429);
+ const ticket=await db.supportTicket.create({data:{name,email,phone:phone || null,subject:subject || "General inquiry",message}});
+ return NextResponse.json({success:true,ticketId:ticket.id,deliveryStatus:ticket.deliveryStatus,message:"Your support ticket is saved. Keep this reference for follow-up."},{status:201});
+}catch(e){return apiError(e,"Could not save your support request. Please retry.");}}

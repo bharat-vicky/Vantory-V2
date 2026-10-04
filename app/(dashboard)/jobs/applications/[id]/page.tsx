@@ -296,15 +296,15 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div className="pt-2 border-t border-neutral-200">
                   <Link
-                    href="/resume"
+                    href={`/api/applications/${application.id}/resume`}
                     className="text-xs text-neutral-950 font-bold hover:underline inline-flex items-center gap-1"
                   >
-                    <span>View in Resume Builder</span>
+                    <span>Download submitted resume</span>
                   </Link>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-neutral-500">Default Candidate Profile Snapshot</p>
+              <p className="text-xs text-neutral-500">Original resume unavailable for this historical application.</p>
             )}
           </div>
 

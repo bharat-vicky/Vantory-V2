@@ -1,15 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AuthTabs, type AuthTabMode } from "@/components/auth/AuthTabs";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { AuthFooter } from "@/components/auth/AuthFooter";
+import type { UserEcosystemRole } from "@/components/auth/RoleSelector";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthTabMode>("login");
+  const [initialRole, setInitialRole] =
+    useState<UserEcosystemRole>("candidate");
+
+  useEffect(() => {
+    const role = new URLSearchParams(window.location.search).get("role");
+    setInitialRole(
+      role === "company" || role === "employer"
+        ? "company"
+        : role === "institute"
+          ? "institute"
+          : "candidate",
+    );
+  }, []);
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex selection:bg-neutral-950 selection:text-white">
@@ -48,11 +62,13 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-[1.15]">
-            Mission-critical career infrastructure and real-time ATS verification.
+            Mission-critical career infrastructure and real-time ATS
+            verification.
           </h2>
 
           <p className="text-xs sm:text-sm text-neutral-300 font-normal leading-relaxed">
-            Designed for scale, security, and sub-second resume parsing across high-throughput candidate drives.
+            Designed for scale, security, and sub-second resume parsing across
+            high-throughput candidate drives.
           </p>
         </div>
       </div>
@@ -88,6 +104,7 @@ export default function LoginPage() {
 
           {mode === "login" ? (
             <LoginForm
+              initialRole={initialRole}
               onSwitchToSignup={() => setMode("signup")}
               onSuccess={(dest) => {
                 window.location.href = dest || "/dashboard";
@@ -95,6 +112,7 @@ export default function LoginPage() {
             />
           ) : (
             <RegisterForm
+              initialRole={initialRole}
               onSwitchToLogin={() => setMode("login")}
               onSuccess={(dest) => {
                 window.location.href = dest || "/dashboard";

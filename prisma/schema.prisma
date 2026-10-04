@@ -1,49 +1,24 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
 }
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
-}
-
-enum Role {
-  CANDIDATE
-  COMPANY_ADMIN
-  INSTITUTE_ADMIN
-  INSTITUTE_STUDENT
-  SUPER_ADMIN
-}
-
-enum ApplicationState {
-  APPLIED
-  UNDER_REVIEW
-  SHORTLISTED
-  INTERVIEW
-  SELECTED
-  OFFERED
-  REJECTED
-  WITHDRAWN
-}
-
-enum InterviewType {
-  TECHNICAL
-  BEHAVIORAL
-  HR
-  SYSTEM_DESIGN
+  provider = "prisma-client-js"
 }
 
 model User {
-  id             String          @id @default(uuid())
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
   email          String          @unique
-  passwordHash   String
+  emailVerifiedAt DateTime?
+  passwordHash   String?
   name           String
-  role           Role            @default(CANDIDATE)
+  role           String          @default("CANDIDATE")
+  isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  instituteId    String?
+  instituteId    String?         @db.ObjectId
   institute      Institute?      @relation(fields: [instituteId], references: [id])
 
   profile        Profile?
@@ -55,11 +30,38 @@ model User {
   applications   JobApplication[]
   savedJobs      SavedJob[]
   activities     ActivityLog[]
+  authTokens     AuthToken[]
+  authSessions   AuthSession[]
   postedJobs     JobPosting[]       @relation("CompanyJobPostings")
 }
 
+model AuthToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash String   @unique
+  purpose   String
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+model AuthSession {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String    @unique
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+}
+
 model Institute {
-  id                 String   @id @default(uuid())
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   logo               String?
   website            String?
@@ -70,7 +72,7 @@ model Institute {
   domain             String?
   establishedYear    Int?     @default(2010)
   isOnboarded        Boolean  @default(false)
-  verificationStatus String   @default("VERIFIED")
+  verificationStatus String   @default("PENDING")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -78,8 +80,8 @@ model Institute {
 }
 
 model CompanyProfile {
-  id                 String   @id @default(uuid())
-  userId             String   @unique
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String   @unique @db.ObjectId
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyName        String
   logo               String?
@@ -90,14 +92,14 @@ model CompanyProfile {
   establishedYear    Int?     @default(2024)
   companySize        String?  @default("11-50 Employees")
   isOnboarded        Boolean  @default(false)
-  verificationStatus String   @default("VERIFIED")
+  verificationStatus String   @default("PENDING")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
 
 model Profile {
-  id              String   @id @default(uuid())
-  userId          String   @unique
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @unique @db.ObjectId
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   headline        String?
   bio             String?
@@ -110,9 +112,11 @@ model Profile {
   skills          String?
   experienceYears Int?     @default(0)
   education       String?
-  department      String?  @default("Computer Science")
-  course          String?  @default("B.Tech")
-  graduationYear  Int?     @default(2027)
+  department      String?
+  course          String?
+  graduationYear  Int?
+  careerJson      String?
+  preferencesJson String?
   studentId       String?
   placementStatus String?  @default("LOOKING")
   completionScore Int      @default(20)
@@ -121,8 +125,8 @@ model Profile {
 }
 
 model Resume {
-  id           String   @id @default(uuid())
-  userId       String
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title        String   @default("Untitled Resume")
   templateId   String   @default("classic-monochrome")
@@ -136,10 +140,10 @@ model Resume {
 }
 
 model AtsScan {
-  id                   String   @id @default(uuid())
-  userId               String
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String   @db.ObjectId
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resumeId             String?
+  resumeId             String?  @db.ObjectId
   resume               Resume?  @relation(fields: [resumeId], references: [id], onDelete: SetNull)
   targetJobTitle       String
   companyName          String?
@@ -163,12 +167,12 @@ model AtsScan {
 }
 
 model InterviewSession {
-  id                   String                 @id @default(uuid())
-  userId               String
+  id                   String                 @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String                 @db.ObjectId
   user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resumeId             String?
+  resumeId             String?                @db.ObjectId
   resume               Resume?                @relation(fields: [resumeId], references: [id], onDelete: SetNull)
-  jobId                String?
+  jobId                String?                @db.ObjectId
   job                  JobPosting?            @relation(fields: [jobId], references: [id], onDelete: SetNull)
   targetJobTitle       String
   jobRole              String                 @default("")
@@ -192,14 +196,18 @@ model InterviewSession {
   sessionStateJson     String                 @default("{}")
   reportSnapshotJson   String?
   prepPlanJson         String?
+  assessmentVersion    String?
+  startedAt            DateTime?
+  answerLock           String?
+  lockExpiresAt        DateTime?
   questions            MockInterviewQuestion[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
 
 model MockInterviewQuestion {
-  id                  String           @id @default(uuid())
-  sessionId           String
+  id                  String           @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId           String           @db.ObjectId
   session             InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   questionIndex       Int
   category            String
@@ -207,6 +215,7 @@ model MockInterviewQuestion {
   candidateAnswerText String?
   audioDurationSeconds Int?
   evaluationJson      String?
+  responseJson        String?
   followUpParentId    String?
   isFollowUp          Boolean          @default(false)
   credibilityConcern  Boolean          @default(false)
@@ -216,12 +225,12 @@ model MockInterviewQuestion {
 }
 
 model JobPosting {
-  id                    String           @id @default(uuid())
+  id                    String           @id @default(auto()) @map("_id") @db.ObjectId
   title                 String
   company               String
   companyLogo           String?
   companyUrl            String?
-  companyUserId         String?
+  companyUserId         String?          @db.ObjectId
   companyUser           User?            @relation("CompanyJobPostings", fields: [companyUserId], references: [id], onDelete: SetNull)
   location              String
   workMode              String           @default("Remote")
@@ -241,7 +250,8 @@ model JobPosting {
   skills                String           @default("")
   tags                  String           @default("")
   status                String           @default("ACTIVE")
-  verificationStatus    String           @default("VERIFIED")
+  verificationStatus    String           @default("PENDING")
+  eligibilityJson       String?
   hiringContact         String?
   postedAt              DateTime         @default(now())
   expiresAt             DateTime?
@@ -254,10 +264,10 @@ model JobPosting {
 }
 
 model SavedJob {
-  id        String     @id @default(uuid())
-  userId    String
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String     @db.ObjectId
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobId     String
+  jobId     String     @db.ObjectId
   job       JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
   createdAt DateTime   @default(now())
 
@@ -265,17 +275,20 @@ model SavedJob {
 }
 
 model JobApplication {
-  id           String           @id @default(uuid())
-  userId       String
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String           @db.ObjectId
   user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobId        String
+  jobId        String           @db.ObjectId
   job          JobPosting       @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  resumeId     String?
+  resumeId     String?          @db.ObjectId
   resume       Resume?          @relation(fields: [resumeId], references: [id], onDelete: SetNull)
   coverNote    String?
-  status       ApplicationState @default(APPLIED)
+  status       String           @default("APPLIED")
   timelineJson String           @default("[]")
   notes        String?
+  resumeSnapshotJson String?
+  jobSnapshotJson String?
+  resumeRevision DateTime?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -283,11 +296,172 @@ model JobApplication {
 }
 
 model ActivityLog {
-  id        String   @id @default(uuid())
-  userId    String
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
   title     String
   detail    String?
   createdAt DateTime @default(now())
+}
+
+model InstituteInvitation {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  instituteId String   @db.ObjectId
+  email       String
+  name        String
+  rosterJson  String
+  status      String   @default("PENDING")
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([instituteId, email])
+  @@index([email, status])
+}
+
+model PreparationTask {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  topicId    String
+  targetJobId String?  @db.ObjectId
+  status     String   @default("TODO")
+  bestScore  Int?
+  bestQuizScore Int?
+  quizAttempts Int @default(0)
+  bestExecutionScore Int?
+  sourceJson String?
+  attempts   Int      @default(0)
+  evidenceJson String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, topicId])
+}
+
+model PreparationAttempt {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  topicId String
+  kind String
+  score Int
+  resultJson String
+  requestKey String
+  inputHash String @default("")
+  createdAt DateTime @default(now())
+  @@unique([userId,requestKey])
+  @@index([userId,topicId,createdAt])
+}
+
+model CareerDocument {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  kind String
+  title String
+  resumeId String? @db.ObjectId
+  resumeRevision DateTime?
+  targetRole String
+  contentJson String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId,kind,updatedAt])
+}
+
+model ResumeFeedbackChange {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  resumeId String @db.ObjectId
+  anchorJson String
+  beforeText String
+  afterText String
+  beforeRevision DateTime
+  afterRevision DateTime
+  checksJson String
+  createdAt DateTime @default(now())
+  @@index([userId,resumeId,createdAt])
+}
+
+model PitchAttempt {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  targetRole String
+  transcript String
+  durationSeconds Int
+  checksJson String
+  requestKey String
+  createdAt DateTime @default(now())
+  @@unique([userId,requestKey])
+  @@index([userId,createdAt])
+}
+
+model ResumeReviewRequest {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  instituteId String @db.ObjectId
+  resumeId String @db.ObjectId
+  resumeRevision DateTime
+  title String
+  snapshotJson String
+  status String @default("OPEN")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  comments ResumeReviewComment[]
+  @@index([userId,createdAt])
+  @@index([instituteId,status,expiresAt])
+}
+
+model ResumeReviewComment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  requestId String @db.ObjectId
+  request ResumeReviewRequest @relation(fields:[requestId],references:[id],onDelete:Cascade)
+  reviewerId String @db.ObjectId
+  anchorJson String?
+  text String
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([requestId])
+}
+
+model CandidateOpportunity {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  title      String
+  company    String
+  url        String?
+  jobDescription String
+  status     String   @default("SAVED")
+  notes      String?
+  deadline   DateTime?
+  interviewAt DateTime?
+  timelineJson String @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SupportTicket {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  email      String
+  phone      String?
+  subject    String
+  message    String
+  deliveryStatus String @default("PENDING")
+  deliveryAttempts Int @default(0)
+  messageId  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model CandidateJobWorkspace {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  jobId String @db.ObjectId
+  resumeId String? @db.ObjectId
+  scanId String? @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId,jobId])
 }

@@ -97,7 +97,7 @@ function InstituteAnalyticsContent() {
   const reportsList = [
     {
       id: "readiness" as const,
-      title: "1. Placement Readiness Audit Report",
+      title: "1. Preparation Checklist Report",
       description:
         "Complete student candidate roster, individual ATS scores, resume availability, mock interview metrics, and deterministic readiness classification.",
       icon: FileText,
@@ -202,7 +202,7 @@ function InstituteAnalyticsContent() {
                       <tr>
                         <th className="py-3 px-4">DEPARTMENT</th>
                         <th className="py-3 px-4">TOTAL STUDENTS</th>
-                        <th className="py-3 px-4">PLACEMENT READY</th>
+                        <th className="py-3 px-4">CHECKLIST COMPLETE</th>
                         <th className="py-3 px-4">READINESS RATE</th>
                         <th className="py-3 px-4">OFFERS / PLACED</th>
                       </tr>

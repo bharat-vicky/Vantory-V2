@@ -11,7 +11,8 @@ html {
   scroll-behavior: auto !important;
 }
 
-html.lenis, html.lenis body {
+html.lenis,
+html.lenis body {
   height: auto;
 }
 
@@ -34,28 +35,28 @@ html.lenis, html.lenis body {
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family:
+    var(--font-outfit),
+    var(--font-inter),
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.015em;
   font-weight: 400;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-inter), sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em;
   color: #09090b;
-}
-
-/* Site-wide boldness reduction overrides */
-.font-bold {
-  font-weight: 600 !important;
-}
-
-.font-extrabold,
-.font-black {
-  font-weight: 600 !important;
 }
 
 /* Site-wide sleek custom scrollbar for modal and content containers */
@@ -102,16 +103,25 @@ body,
 }
 
 /* Smooth button & card micro-interactions */
-button, a {
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+button,
+a {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.15s ease;
 }
 
-button:active, a:active {
+button:active,
+a:active {
   transform: scale(0.985);
 }
 
 .premium-card {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .premium-card:hover {
@@ -126,7 +136,8 @@ button:active, a:active {
     margin: 0;
   }
 
-  html, body {
+  html,
+  body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
@@ -169,5 +180,37 @@ button:active, a:active {
   a {
     text-decoration: underline !important;
     color: #000000 !important;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  [data-ats-print-report],
+  [data-ats-print-report] * {
+    visibility: visible !important;
+  }
+
+  [data-ats-print-hide] {
+    display: none !important;
+  }
+
+  [data-ats-print-report] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
 }

@@ -44,7 +44,7 @@ interface StudentDetail {
     isAtsReady: boolean;
     isInterviewReady: boolean;
     isPlacementReady: boolean;
-    readinessCategory: "Placement Ready" | "Needs Improvement" | "Not Ready";
+    readinessCategory: "Checklist Complete" | "Needs Improvement" | "Not Ready";
   };
   resumes: Array<{
     id: string;

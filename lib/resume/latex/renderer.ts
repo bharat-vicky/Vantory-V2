@@ -1,28 +1,78 @@
 import { ResumeData } from "../types";
 import { escapeLatex } from "./escapeLatex";
 
+const escapeLatexUrl = (url: string) => escapeLatex(url);
+
 /**
  * Renders raw LaTeX document source code from structured ResumeData.
  * Implements Font Awesome 5 vector icons, hidelinks hyperref, and deterministic tabular layout.
  */
 export function generateLatexSource(data: ResumeData): string {
-  const { personalInfo, summary, skills, experience, education, projects, certifications, achievements, settings } = data;
+  const {
+    personalInfo,
+    summary,
+    skills,
+    experience,
+    education,
+    projects,
+    certifications,
+    achievements,
+    settings,
+  } = data;
   const { sectionOrder, sectionVisibility } = settings;
+  const baseFontSize =
+    settings.fontSize === "sm" ? 9 : settings.fontSize === "lg" ? 11 : 10;
+  const templateScale =
+    settings.templateId === "latex-minimal"
+      ? 0.91
+      : settings.templateId === "latex-classic"
+        ? 1.04
+        : 1;
+  const documentFontSize = Math.max(
+    8,
+    Math.round(baseFontSize * templateScale),
+  );
+  const marginPresets = {
+    compact: "top=28pt,bottom=28pt,left=34pt,right=34pt",
+    normal: "top=40pt,bottom=40pt,left=45pt,right=45pt",
+    spacious: "top=52pt,bottom=52pt,left=57pt,right=57pt",
+  };
+  const latexMargins = marginPresets[settings.margins] || marginPresets.normal;
+  const fontFamily =
+    settings.templateId === "latex-minimal"
+      ? "\\renewcommand{\\familydefault}{\\sfdefault}"
+      : "";
 
   const contactItems: string[] = [];
-  if (personalInfo.location) contactItems.push(escapeLatex(personalInfo.location));
-  if (personalInfo.email) contactItems.push(`\\href{mailto:${personalInfo.email}}{${escapeLatex(personalInfo.email)}}`);
+  if (personalInfo.location)
+    contactItems.push(escapeLatex(personalInfo.location));
+  if (personalInfo.email)
+    contactItems.push(
+      `\\href{${escapeLatexUrl(`mailto:${personalInfo.email}`)}}{${escapeLatex(personalInfo.email)}}`,
+    );
   if (personalInfo.phone) contactItems.push(escapeLatex(personalInfo.phone));
 
   const socialLinks: string[] = [];
-  if (personalInfo.linkedin) socialLinks.push(`\\href{${personalInfo.linkedin}}{\\mbox{💼 \\underline{LinkedIn}}}`);
-  if (personalInfo.github) socialLinks.push(`\\href{${personalInfo.github}}{\\mbox{💻 \\underline{GitHub}}}`);
-  if (personalInfo.portfolio) socialLinks.push(`\\href{${personalInfo.portfolio}}{\\mbox{🌐 \\underline{Portfolio}}}`);
-  if (personalInfo.leetcode) socialLinks.push(`\\href{${personalInfo.leetcode}}{\\mbox{</> \\underline{LeetCode}}}`);
+  if (personalInfo.linkedin)
+    socialLinks.push(
+      `\\href{${escapeLatexUrl(personalInfo.linkedin)}}{\\underline{LinkedIn}}`,
+    );
+  if (personalInfo.github)
+    socialLinks.push(
+      `\\href{${escapeLatexUrl(personalInfo.github)}}{\\underline{GitHub}}`,
+    );
+  if (personalInfo.portfolio)
+    socialLinks.push(
+      `\\href{${escapeLatexUrl(personalInfo.portfolio)}}{\\underline{Portfolio}}`,
+    );
+  if (personalInfo.leetcode)
+    socialLinks.push(
+      `\\href{${escapeLatexUrl(personalInfo.leetcode)}}{\\underline{LeetCode}}`,
+    );
 
-  let latex = `\\documentclass[10pt,a4paper]{article}
-\\usepackage[utf8]{utf8}
-\\usepackage[margin=0.5in]{geometry}
+  let latex = `\\documentclass[${documentFontSize}pt,a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[${latexMargins}]{geometry}
 \\usepackage{fontawesome5}
 \\usepackage[hidelinks]{hyperref}
 \\usepackage{enumitem}
@@ -37,6 +87,7 @@ export function generateLatexSource(data: ResumeData): string {
 \\setlist[itemize]{noitemsep, topsep=2pt, parsep=2pt, partopsep=0pt, leftmargin=15pt}
 \\titleformat{\\section}{\\large\\bfseries\\uppercase}{}{0em}{}[\\vspace{3pt}\\hrule height 0.75pt\\vspace{5pt}]
 \\titlespacing*{\\section}{0pt}{10pt}{4pt}
+${fontFamily}
 \\pagestyle{empty}
 
 \\begin{document}
@@ -70,7 +121,7 @@ ${escapeLatex(summary)}
 `;
       for (const cat of skills) {
         if (cat.skills && cat.skills.length > 0) {
-          const joinedSkills = cat.skills.map(s => escapeLatex(s)).join(", ");
+          const joinedSkills = cat.skills.map((s) => escapeLatex(s)).join(", ");
           latex += `  \\item \\textbf{${escapeLatex(cat.category)}:} ${joinedSkills}\n`;
         }
       }
@@ -103,14 +154,16 @@ ${escapeLatex(summary)}
 `;
       for (const proj of projects) {
         const links: string[] = [];
-        if (proj.repoUrl) links.push(`\\href{${proj.repoUrl}}{GitHub}`);
-        if (proj.liveUrl) links.push(`\\href{${proj.liveUrl}}{Live Demo}`);
+        if (proj.repoUrl)
+          links.push(`\\href{${escapeLatexUrl(proj.repoUrl)}}{GitHub}`);
+        if (proj.liveUrl)
+          links.push(`\\href{${escapeLatexUrl(proj.liveUrl)}}{Live Demo}`);
         const linkStr = links.length > 0 ? links.join(" \\quad ") : "";
 
         latex += `\\begin{tabular*}{\\linewidth}{@{\\extracolsep{\\fill}} l r}
   \\textbf{${escapeLatex(proj.title)}} & ${linkStr}
 \\end{tabular*}\\\\
-${proj.techStack && proj.techStack.length > 0 ? `\\textit{Tech Stack: ${proj.techStack.map(t => escapeLatex(t)).join(", ")}}\\\\\n` : ""}`;
+${proj.techStack && proj.techStack.length > 0 ? `\\textit{Tech Stack: ${proj.techStack.map((t) => escapeLatex(t)).join(", ")}}\\\\\n` : ""}`;
 
         if (proj.bullets && proj.bullets.length > 0) {
           latex += `\\begin{itemize}\n`;
@@ -135,25 +188,37 @@ ${proj.techStack && proj.techStack.length > 0 ? `\\textit{Tech Stack: ${proj.tec
       }
     }
 
-    if (sectionId === "certifications" && certifications && certifications.length > 0) {
+    if (
+      sectionId === "certifications" &&
+      certifications &&
+      certifications.length > 0
+    ) {
       latex += `
 \\section{Certifications}
 \\begin{itemize}
 `;
       for (const cert of certifications) {
-        const linkStr = cert.credentialUrl ? ` \\hfill \\href{${cert.credentialUrl}}{\\mbox{\\faExternalLinkAlt\\ [Verify]}}` : "";
+        const linkStr = cert.credentialUrl
+          ? ` \\hfill \\href{${escapeLatexUrl(cert.credentialUrl)}}{\\mbox{\\faExternalLinkAlt\\ [Verify]}}`
+          : "";
         latex += `  \\item \\textbf{${escapeLatex(cert.name)}} -- ${escapeLatex(cert.issuer)} (${escapeLatex(cert.issueDate)})${linkStr}\n`;
       }
       latex += `\\end{itemize}\n`;
     }
 
-    if (sectionId === "achievements" && achievements && achievements.length > 0) {
+    if (
+      sectionId === "achievements" &&
+      achievements &&
+      achievements.length > 0
+    ) {
       latex += `
 \\section{Achievements}
 \\begin{itemize}
 `;
       for (const ach of achievements) {
-        const linkStr = ach.proofUrl ? ` \\hfill \\href{${ach.proofUrl}}{\\mbox{\\faExternalLinkAlt\\ [Proof]}}` : "";
+        const linkStr = ach.proofUrl
+          ? ` \\hfill \\href{${escapeLatexUrl(ach.proofUrl)}}{\\mbox{\\faExternalLinkAlt\\ [Proof]}}`
+          : "";
         latex += `  \\item \\textbf{${escapeLatex(ach.title)}}${ach.description ? `: ${escapeLatex(ach.description)}` : ""}${linkStr}\n`;
       }
       latex += `\\end{itemize}\n`;

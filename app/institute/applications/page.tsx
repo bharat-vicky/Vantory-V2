@@ -238,7 +238,7 @@ export default function InstituteApplicationsPage() {
                         <td className="py-4 px-4">
                           <select
                             value={app.status}
-                            disabled={updatingId === app.id}
+                            disabled title="Hiring status is managed by the employer"
                             onChange={(e) => handleStatusChange(app.id, e.target.value)}
                             className="px-2.5 py-1 text-[11px] font-mono font-bold bg-neutral-100 border border-neutral-300 rounded-lg text-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-950 cursor-pointer disabled:opacity-50"
                           >

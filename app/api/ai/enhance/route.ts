@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/authorization";
+import { requireCandidate } from "@/lib/auth/authorization";
 import { enhanceResumeText } from "@/lib/ai/gemini";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await requireCandidate();
     if (!user) {
       return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
     }
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
+    if(selectedText.length>1500 || (customInstruction && (typeof customInstruction!=="string" || customInstruction.length>500)))return NextResponse.json({success:false,error:"Select up to 1,500 characters and use a shorter instruction."},{status:400});
     const result = await enhanceResumeText({
       selectedText,
       sectionContext,
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      const status = result.isOffTopic ? 400 : 500;
+      const status = result.isOffTopic ? 400 : 503;
       return NextResponse.json(
         { success: false, error: result.error || "AI Enhancement failed." },
         { status }
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
         analysis: result.analysis,
         originalText: result.originalText,
         sectionContext: result.sectionContext,
+        provider:result.provider,model:result.model,
       },
       {
         headers: {

@@ -36,7 +36,7 @@ interface Student {
     isAtsReady: boolean;
     isInterviewReady: boolean;
     isPlacementReady: boolean;
-    readinessCategory: "Placement Ready" | "Needs Improvement" | "Not Ready";
+    readinessCategory: "Checklist Complete" | "Needs Improvement" | "Not Ready";
   };
 }
 
@@ -215,7 +215,7 @@ export default function InstituteStudentsPage() {
                   className="w-full h-10 px-3 bg-white border border-neutral-200/90 rounded-xl text-xs font-semibold text-neutral-900 focus:border-neutral-950 focus:outline-none"
                 >
                   <option value="ALL">All Readiness States</option>
-                  <option value="READY">Placement Ready</option>
+                  <option value="READY">Checklist Complete</option>
                   <option value="NEEDS_IMPROVEMENT">Needs Improvement</option>
                   <option value="NOT_READY">Not Ready</option>
                 </select>

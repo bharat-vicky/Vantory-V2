@@ -13,7 +13,7 @@ export interface StudentReadinessBreakdown {
   isAtsReady: boolean;
   isInterviewReady: boolean;
   isPlacementReady: boolean;
-  readinessCategory: "Placement Ready" | "Needs Improvement" | "Not Ready";
+  readinessCategory: "Checklist Complete" | "Needs Improvement" | "Not Ready";
 }
 
 export interface InstitutionReadinessFunnel {
@@ -47,10 +47,10 @@ export function calculateStudentReadiness(
   if (isAtsReady) readyPoints++;
   if (isInterviewReady) readyPoints++;
 
-  let readinessCategory: "Placement Ready" | "Needs Improvement" | "Not Ready" =
+  let readinessCategory: "Checklist Complete" | "Needs Improvement" | "Not Ready" =
     "Not Ready";
   if (isPlacementReady) {
-    readinessCategory = "Placement Ready";
+    readinessCategory = "Checklist Complete";
   } else if (readyPoints >= 2) {
     readinessCategory = "Needs Improvement";
   }

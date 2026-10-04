@@ -7,20 +7,30 @@ import { StructuredJobDescription, ExtractedRequirement } from "../types";
 import { normalizeJobTitle, detectSeniorityLevel } from "../taxonomy/titles";
 import { CANONICAL_SKILL_MAP } from "../taxonomy/skills";
 
-export function parseJobDescription(rawJdText: string, providedTitle?: string): StructuredJobDescription {
+export function parseJobDescription(
+  rawJdText: string,
+  providedTitle?: string,
+): StructuredJobDescription {
   const text = rawJdText.trim();
-  const title = providedTitle || extractJobTitleFromJd(text);
+  const title = providedTitle?.trim() || extractJobTitleFromJd(text);
   const normalizedTitle = normalizeJobTitle(title);
   const seniority = detectSeniorityLevel(`${title} ${text}`);
   const minYears = extractMinYearsExperience(text);
 
   const { requiredSkills, preferredSkills } = extractSkillsFromJd(text);
-  const requirements = extractStructuredRequirements(text, requiredSkills, preferredSkills, minYears);
+  const requirements = extractStructuredRequirements(
+    text,
+    requiredSkills,
+    preferredSkills,
+    minYears,
+  );
 
   let workMode: "REMOTE" | "HYBRID" | "ON_SITE" | "UNKNOWN" = "UNKNOWN";
-  if (/\b(remote|work from home|telecommute)\b/i.test(text)) workMode = "REMOTE";
+  if (/\b(remote|work from home|telecommute)\b/i.test(text))
+    workMode = "REMOTE";
   else if (/\b(hybrid|flexible)\b/i.test(text)) workMode = "HYBRID";
-  else if (/\b(on-site|onsite|in-office|in office)\b/i.test(text)) workMode = "ON_SITE";
+  else if (/\b(on-site|onsite|in-office|in office)\b/i.test(text))
+    workMode = "ON_SITE";
 
   return {
     title,
@@ -40,12 +50,16 @@ export function parseJobDescription(rawJdText: string, providedTitle?: string): 
 
 function extractJobTitleFromJd(text: string): string {
   const firstLine = text.split("\n")[0]?.trim() || "";
-  if (firstLine.length > 5 && firstLine.length < 80 && !firstLine.includes(".")) {
+  if (
+    firstLine.length > 5 &&
+    firstLine.length < 80 &&
+    !firstLine.includes(".")
+  ) {
     return firstLine;
   }
   const match = text.match(/(?:Job Title|Role|Position)\s*[:|-]\s*([^\n\r]+)/i);
   if (match) return match[1].trim();
-  return "Software Engineer";
+  return "Unspecified Role";
 }
 
 function extractCompanyNameFromJd(text: string): string | undefined {
@@ -55,46 +69,65 @@ function extractCompanyNameFromJd(text: string): string | undefined {
 }
 
 function extractLocationFromJd(text: string): string | undefined {
-  const match = text.match(/(?:Location|Based in|Office)\s*[:|-]\s*([^\n\r.]+)/i);
+  const match = text.match(
+    /(?:Location|Based in|Office)\s*[:|-]\s*([^\n\r.]+)/i,
+  );
   if (match) return match[1].trim();
   return undefined;
 }
 
-function extractMinYearsExperience(text: string): number {
-  const match = text.match(/(\d+)\s*\+\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)/i) ||
-                text.match(/(?:at least|minimum|with)\s+(\d+)\s*(?:years?|yrs?)/i);
-  if (match) {
-    return parseInt(match[1], 10);
-  }
-  if (/senior|sr\./i.test(text)) return 5;
-  if (/junior|entry/i.test(text)) return 1;
-  return 2;
+export function extractMinYearsExperience(text: string): number {
+  const matches = [...text.matchAll(/(\d+(?:\.\d+)?)\s*(?:\+|[-\u2013\u2014]\s*\d+)?\s*(?:years?|yrs?)\b[^.\n]{0,80}?(?:experience|exp\b)/gi)];
+  const explicit = text.match(/(?:at least|minimum)\s+(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/i);
+  const values = matches.map(match => Number(match[1]));
+  if (explicit) values.push(Number(explicit[1]));
+  return values.length ? Math.max(...values) : 0;
 }
 
 function extractEducationRequirement(text: string): string | undefined {
-  const match = text.match(/(?:bachelor|master|phd|b\.tech|b\.e\.|bs|ms|degree)\s+in\s+([^\n\r.]+)/i);
-  if (match) return match[0].trim();
-  if (/bachelor/i.test(text)) return "Bachelor's Degree in Computer Science or related field";
-  return undefined;
+  const match = text.match(
+    /\b(?:bachelor(?:'s)?|master(?:'s)?|ph\.?d\.?|doctorate|associate|b\.tech|b\.e\.|b\.s\.?|m\.s\.?|degree)\b[^\n\r.]{0,100}/i,
+  );
+  if (!match || /\bor equivalent experience\b/i.test(match[0]))
+    return undefined;
+  return match[0].trim();
 }
 
-function extractSkillsFromJd(text: string): { requiredSkills: string[]; preferredSkills: string[] } {
+function extractSkillsFromJd(text: string): {
+  requiredSkills: string[];
+  preferredSkills: string[];
+} {
   const required: string[] = [];
   const preferred: string[] = [];
 
   const lower = text.toLowerCase();
-  const preferredSectionMatch = text.match(/(?:preferred|nice to have|bonus|plus)\s*[:|-]?([\s\S]*?)(?=(?:requirements|qualifications|responsibilities|$))/i);
-  const preferredText = preferredSectionMatch ? preferredSectionMatch[1].toLowerCase() : "";
+  const requiredChunks: string[] = [];
+  const preferredChunks: string[] = [];
+  let preferredSection = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*(?:preferred(?: qualifications| requirements| skills)?|nice to have|bonus)(?:\s*:|\s*$)/i.test(line)) preferredSection = true;
+    else if (/^\s*(?:required(?: qualifications| requirements| skills)?|requirements|qualifications|responsibilities|skills)(?:\s*:|\s*$)/i.test(line)) preferredSection = false;
+    for (const clause of line.split(/;|(?<=\.)\s+/)) {
+      if (preferredSection || /\b(?:preferred|nice to have|bonus|a plus)\b/i.test(clause)) preferredChunks.push(clause);
+      else requiredChunks.push(clause);
+    }
+  }
+  const requiredText = requiredChunks.join("\n");
+  const preferredText = preferredChunks.join("\n");
 
   Object.keys(CANONICAL_SKILL_MAP).forEach((key) => {
     const canonicalName = CANONICAL_SKILL_MAP[key];
     const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const reg = /^\w/.test(key) && /\w$/.test(key)
-      ? new RegExp(`\\b${safeKey}\\b`, "i")
-      : new RegExp(`(?:^|\\s|[^a-zA-Z0-9])${safeKey}(?:$|\\s|[^a-zA-Z0-9])`, "i");
+    const reg =
+      /^\w/.test(key) && /\w$/.test(key)
+        ? new RegExp(`\\b${safeKey}\\b`, "i")
+        : new RegExp(
+            `(?:^|\\s|[^a-zA-Z0-9])${safeKey}(?:$|\\s|[^a-zA-Z0-9])`,
+            "i",
+          );
 
     if (reg.test(lower)) {
-      if (preferredText && reg.test(preferredText)) {
+      if (preferredText && reg.test(preferredText) && !reg.test(requiredText)) {
         if (!preferred.includes(canonicalName)) preferred.push(canonicalName);
       } else {
         if (!required.includes(canonicalName)) required.push(canonicalName);
@@ -109,7 +142,7 @@ function extractStructuredRequirements(
   text: string,
   requiredSkills: string[],
   preferredSkills: string[],
-  minYears: number
+  minYears: number,
 ): ExtractedRequirement[] {
   const reqs: ExtractedRequirement[] = [];
 
@@ -133,8 +166,8 @@ function extractStructuredRequirements(
       name: skill,
       category: "skill",
       type: "REQUIRED",
-      importance: idx < 3 ? "CRITICAL" : "HIGH",
-      originalText: `Proficiency in ${skill}`,
+      importance: "HIGH",
+      originalText: text.split(/\n|(?<=\.)\s+/).find(line => line.toLowerCase().includes(skill.toLowerCase())) || skill,
     });
   });
 
@@ -146,7 +179,7 @@ function extractStructuredRequirements(
       category: "skill",
       type: "PREFERRED",
       importance: "MEDIUM",
-      originalText: `Experience with ${skill} is a plus`,
+      originalText: text.split(/\n|(?<=\.)\s+/).find(line => line.toLowerCase().includes(skill.toLowerCase())) || skill,
     });
   });
 

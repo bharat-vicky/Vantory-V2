@@ -1,10 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { ArrowRight, AlertCircle, Building2, GraduationCap, User, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  AlertCircle,
+  Building2,
+  GraduationCap,
+  User,
+  Loader2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PasswordField } from "./PasswordField";
 import { RoleSelector, type UserEcosystemRole } from "./RoleSelector";
+import { GoogleAuthButton } from "./GoogleAuthButton";
+import {
+  passwordByteLength,
+  MAX_BCRYPT_PASSWORD_BYTES,
+} from "@/lib/validation/auth";
 
 export interface RegisterFormProps {
   initialRole?: UserEcosystemRole;
@@ -12,8 +24,14 @@ export interface RegisterFormProps {
   onSuccess?: (redirectUrl?: string) => void;
 }
 
-export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: RegisterFormProps) {
-  const [role, setRole] = useState<UserEcosystemRole>(initialRole || "candidate");
+export function RegisterForm({
+  initialRole,
+  onSwitchToLogin,
+  onSuccess,
+}: RegisterFormProps) {
+  const [role, setRole] = useState<UserEcosystemRole>(
+    initialRole || "candidate",
+  );
 
   // Form Fields
   const [name, setName] = useState("");
@@ -27,10 +45,12 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
 
     if (role === "company" && (!companyName || companyName.trim().length < 2)) {
       setError("Company Name must be at least 2 characters.");
@@ -51,6 +71,10 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
       setError("Password must be at least 8 characters long.");
       return;
     }
+    if (passwordByteLength(password) > MAX_BCRYPT_PASSWORD_BYTES) {
+      setError("Password must not exceed 72 UTF-8 bytes.");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -58,8 +82,8 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
       role === "company"
         ? "COMPANY_ADMIN"
         : role === "institute"
-        ? "INSTITUTE_ADMIN"
-        : "CANDIDATE";
+          ? "INSTITUTE_ADMIN"
+          : "CANDIDATE";
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -84,7 +108,20 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
         throw new Error(data.error || "Registration failed.");
       }
 
-      const dest = data.redirectUrl || (role === "company" ? "/company/dashboard" : role === "institute" ? "/institute/dashboard" : "/dashboard");
+      if (data.verificationRequired) {
+        setNotice(
+          "Account created. Check your inbox for a link to verify your email before signing in.",
+        );
+        return;
+      }
+
+      const dest =
+        data.redirectUrl ||
+        (role === "company"
+          ? "/company/dashboard"
+          : role === "institute"
+            ? "/institute/dashboard"
+            : "/dashboard");
 
       if (onSuccess) {
         onSuccess(dest);
@@ -102,6 +139,14 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
     <div className="space-y-4">
       {/* Role Selection Tabs */}
       <RoleSelector selectedRole={role} onChange={setRole} />
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+        >
+          {notice}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {error && (
@@ -127,15 +172,15 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
               {role === "company"
                 ? "Corporate Employer Registration"
                 : role === "institute"
-                ? "Institute Partner Registration"
-                : "Candidate Registration"}
+                  ? "Institute Partner Registration"
+                  : "Candidate Registration"}
             </h4>
             <p className="text-[11px] text-neutral-500 font-mono">
               {role === "company"
                 ? "Post jobs & review candidate applications with real Vantory resumes."
                 : role === "institute"
-                ? "Manage student placement drives & placement analytics."
-                : "Build ATS resumes, calculate match scores, & practice AI interviews."}
+                  ? "Manage student placement drives & placement analytics."
+                  : "Build ATS resumes, calculate match scores, & practice AI interviews."}
             </p>
           </div>
         </div>
@@ -174,9 +219,13 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
         {/* Email & Phone */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Input
-            label={role === "company" ? "Corporate Work Email" : "Email Address"}
+            label={
+              role === "company" ? "Corporate Work Email" : "Email Address"
+            }
             type="email"
-            placeholder={role === "company" ? "hr@company.com" : "alex@example.com"}
+            placeholder={
+              role === "company" ? "hr@company.com" : "alex@example.com"
+            }
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -234,14 +283,26 @@ export function RegisterForm({ initialRole, onSwitchToLogin, onSuccess }: Regist
                 {role === "company"
                   ? "Create Company Account"
                   : role === "institute"
-                  ? "Create Institute Account"
-                  : "Create Candidate Account"}
+                    ? "Create Institute Account"
+                    : "Create Candidate Account"}
               </span>
               <ArrowRight className="w-4 h-4 text-white" />
             </>
           )}
         </button>
       </form>
+
+      <GoogleAuthButton
+        role={role}
+        isSignup
+        organizationName={
+          role === "company"
+            ? companyName
+            : role === "institute"
+              ? instituteName
+              : undefined
+        }
+      />
 
       {onSwitchToLogin && (
         <p className="text-center text-xs text-neutral-500 pt-1 font-mono">

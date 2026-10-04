@@ -19,6 +19,8 @@ import { EvaluatedQuestion } from "@/lib/interview/types";
 
 export interface InterviewRoomProps {
   sessionId?: string;
+  startedAt?: string;
+  durationMinutes?: number;
   initialQuestion: { id: string; questionIndex: number; category: string; questionText: string };
   onAnswerSubmit: (questionId: string, text: string, audioDuration?: number) => Promise<{
     evaluatedQuestion: EvaluatedQuestion;
@@ -32,14 +34,14 @@ interface ISpeechRecognition {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
-  onresult: (event: { resultIndex: number; results: Array<Array<{ transcript: string }>> }) => void;
+  onresult: (event: { resultIndex: number; results: Array<Array<{ transcript: string }> & {isFinal:boolean}> }) => void;
   onerror: (err: { error?: string }) => void;
   onend: () => void;
   start: () => void;
   stop: () => void;
 }
 
-export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview }: InterviewRoomProps) {
+export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQuestion, onAnswerSubmit, onEndInterview }: InterviewRoomProps) {
   const [currentQuestion, setCurrentQuestion] = useState(initialQuestion);
   const [candidateAnswer, setCandidateAnswer] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -53,22 +55,33 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
 
   // Timer state
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [questionCount, setQuestionCount] = useState<number>(1);
+  const [questionCount, setQuestionCount] = useState<number>(initialQuestion.questionIndex);
   const [recentEvaluations, setRecentEvaluations] = useState<EvaluatedQuestion[]>([]);
 
+  const timedEndRequested = useRef(false);
   const recognitionRef = useRef<unknown>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // General Interview Session Timer
   useEffect(() => {
     timerIntervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
+      setElapsedSeconds(startedAt ? Math.floor((Date.now()-Date.parse(startedAt))/1000) : (prev)=>prev+1);
     }, 1000);
 
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, []);
+  }, [startedAt]);
+
+  useEffect(() => {
+    try {if (sessionId) setCandidateAnswer(localStorage.getItem(`interview-draft:${sessionId}:${initialQuestion.id}`) || "");} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
+  }, [sessionId, initialQuestion.id]);
+  useEffect(() => {
+    try {if (sessionId) localStorage.setItem(`interview-draft:${sessionId}:${currentQuestion.id}`, candidateAnswer);} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
+  }, [sessionId, currentQuestion.id, candidateAnswer]);
+  useEffect(() => {
+    if (durationMinutes && elapsedSeconds >= durationMinutes*60 && !isSubmitting && !timedEndRequested.current) {timedEndRequested.current=true;onEndInterview();}
+  }, [elapsedSeconds, durationMinutes, isSubmitting, onEndInterview]);
 
   // Web Speech Synthesis (Text-to-Speech replay)
   const speakQuestion = useCallback((text: string) => {
@@ -103,10 +116,10 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
         recognition.interimResults = true;
         recognition.lang = "en-US";
 
-        recognition.onresult = (event: { resultIndex: number; results: Array<Array<{ transcript: string }>> }) => {
+        recognition.onresult = (event: { resultIndex: number; results: Array<Array<{ transcript: string }> & {isFinal:boolean}> }) => {
           let transcript = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
+            if (event.results[i].isFinal) transcript += event.results[i][0].transcript + " ";
           }
           if (transcript.trim()) {
             setCandidateAnswer((prev) => {
@@ -133,6 +146,11 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
     }
   }, []);
 
+  useEffect(() => () => {
+    (recognitionRef.current as ISpeechRecognition | null)?.stop();
+    window.speechSynthesis?.cancel();
+  }, []);
+
   // Voice recording timer
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -140,8 +158,6 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
       interval = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-    } else {
-      setRecordingSeconds(0);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -187,6 +203,9 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
     try {
       const res = await onAnswerSubmit(currentQuestion.id, candidateAnswer, recordingSeconds);
 
+      try {if (sessionId) localStorage.removeItem(`interview-draft:${sessionId}:${currentQuestion.id}`);} catch {}
+      setRecordingSeconds(0);
+      setSpeechError("");
       setRecentEvaluations((prev) => [...prev, res.evaluatedQuestion]);
 
       if (res.isInterviewComplete || !res.nextQuestion) {
@@ -197,7 +216,7 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
         setQuestionCount((prev) => prev + 1);
       }
     } catch (err: unknown) {
-      console.error("Submit answer error:", err);
+      setSpeechError(err instanceof Error ? err.message : "Unable to submit. Your answer is preserved; retry.");
     } finally {
       setIsSubmitting(false);
     }
@@ -219,7 +238,7 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm text-neutral-950">LIVE AI RECRUITMENT INTERVIEW</span>
+              <span className="font-extrabold text-sm text-neutral-950">PRACTICE INTERVIEW</span>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-950 text-white">
                 Question {questionCount}
               </span>
@@ -238,6 +257,7 @@ export function InterviewRoom({ initialQuestion, onAnswerSubmit, onEndInterview 
 
           <button
             onClick={onEndInterview}
+            disabled={isSubmitting}
             className="px-3.5 py-1.5 bg-white text-neutral-950 border border-neutral-300 rounded-xl text-xs font-mono font-bold hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
             <LogOut className="w-3.5 h-3.5 text-red-600" />

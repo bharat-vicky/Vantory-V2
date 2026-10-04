@@ -10,6 +10,9 @@ import { FinalInterviewReport, InterviewSetupConfig } from "@/lib/interview/type
 type ViewMode = "SETUP" | "ROOM" | "REPORT" | "HISTORY";
 
 export default function MockInterviewPage() {
+  const [error, setError] = useState("");
+  const [startedAt,setStartedAt]=useState<string>();
+  const [durationMinutes,setDurationMinutes]=useState<number>();
   const [viewMode, setViewMode] = useState<ViewMode>("SETUP");
   const [sessionId, setSessionId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -23,7 +26,7 @@ export default function MockInterviewPage() {
 
   const [finalReport, setFinalReport] = useState<FinalInterviewReport | null>(null);
   const [historySessions, setHistorySessions] = useState<PastSessionItem[]>([]);
-  const [historyStats, setHistoryStats] = useState<{ totalInterviews: number; completedCount: number; averageScore: number }>({
+  const [historyStats, setHistoryStats] = useState<{ totalInterviews: number; completedCount: number; averageScore: number | null }>({
     totalInterviews: 0,
     completedCount: 0,
     averageScore: 0,
@@ -66,6 +69,7 @@ export default function MockInterviewPage() {
 
       const newSessionId = createJson.sessionId;
       setSessionId(newSessionId);
+      try{localStorage.setItem("vantory-interview-session",newSessionId);}catch{}
 
       // 2. Start Session & Fetch Opening Question
       const startRes = await fetch(`/api/interview/${newSessionId}/start`, {
@@ -78,9 +82,11 @@ export default function MockInterviewPage() {
       }
 
       setInitialQuestion(startJson.currentQuestion);
+      setStartedAt(startJson.startedAt);setDurationMinutes(startJson.durationMinutes);
       setViewMode("ROOM");
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to start interview session.");
+      setError(err instanceof Error ? err.message : "Failed to start interview session.");
+      void loadHistory();
     } finally {
       setIsSubmitting(false);
     }
@@ -111,49 +117,32 @@ export default function MockInterviewPage() {
   };
 
   // Handle Interview Finalization & Report Fetch
-  const handleEndInterview = async () => {
+  const handleEndInterview = async (targetId = sessionId) => {
     try {
-      const endRes = await fetch(`/api/interview/${sessionId}/end`, {
+      const endRes = await fetch(`/api/interview/${targetId}/end`, {
         method: "POST",
       });
 
       const endJson = await endRes.json();
-      if (endRes.ok && endJson.success && endJson.report) {
-        setFinalReport(endJson.report);
-      } else {
-        const reportRes = await fetch(`/api/interview/${sessionId}/report`);
-        const reportJson = await reportRes.json();
-        if (reportJson.success) {
-          setFinalReport(reportJson.report);
-        }
-      }
-
-      setViewMode("REPORT");
-      loadHistory();
-    } catch {
-      setViewMode("SETUP");
-    }
+      if (!endRes.ok || !endJson.success || !endJson.report) throw new Error(endJson.error || "Could not finalize. Your session is preserved; retry.");
+      setFinalReport(endJson.report);setViewMode("REPORT");try{localStorage.removeItem("vantory-interview-session");}catch{}loadHistory();setError("");
+    } catch(e) {setError(e instanceof Error ? e.message : "Could not finalize. Retry.");}
   };
-
-  const handleSelectHistorySession = async (id: string) => {
-    setSessionId(id);
+  const handleSelectHistorySession = async (id:string) => {
+    setSessionId(id);setError("");
     try {
-      const res = await fetch(`/api/interview/${id}/report`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.report) {
-          setFinalReport(json.report);
-          setViewMode("REPORT");
-          return;
-        }
-      }
-    } catch {
-      // Handle silently
-    }
+      const res=await fetch(`/api/interview/${id}`);const j=await res.json();if(!res.ok) throw new Error(j.error);
+      if(j.status==="CREATED") {const sr=await fetch(`/api/interview/${id}/start`,{method:"POST"});const sj=await sr.json();if(!sr.ok) throw new Error(sj.error);setInitialQuestion(sj.currentQuestion);setStartedAt(sj.startedAt);setDurationMinutes(sj.durationMinutes);setViewMode("ROOM");}
+      else if(j.status==="COMPLETED") {const rr=await fetch(`/api/interview/${id}/report`);const rj=await rr.json();if(!rr.ok) throw new Error(rj.error);setFinalReport(rj.report);setViewMode("REPORT");}
+      else if(j.currentQuestion) {setInitialQuestion(j.currentQuestion);setStartedAt(j.startedAt);setDurationMinutes(j.durationMinutes);setViewMode("ROOM");}
+      else {setViewMode("ROOM");await handleEndInterview(id);}
+    } catch(e) {setError(e instanceof Error ? e.message : "Could not recover session.");}
   };
 
   return (
     <div className="space-y-6 w-full font-sans">
+      {error && <p role="alert" className="p-4 rounded-xl bg-amber-50 text-amber-900">{error}</p>}
+      {viewMode === "SETUP" && historySessions.some(s=>["CREATED","ACTIVE"].includes(s.status)) && <div className="p-4 border rounded-xl bg-white"><p className="text-sm">You have an unfinished interview. Resume it with your saved question and answer draft.</p><button className="underline text-sm mt-2" onClick={()=>handleSelectHistorySession(historySessions.find(s=>["CREATED","ACTIVE"].includes(s.status))!.id)}>Resume unfinished interview</button></div>}
       {/* Top Segmented Navigation Bar */}
       <div className="bg-white border border-neutral-200/80 rounded-2xl p-1.5 flex items-center gap-1.5 shadow-2xs font-mono text-xs font-bold max-w-5xl mx-auto">
         <button
@@ -214,10 +203,13 @@ export default function MockInterviewPage() {
 
       {viewMode === "ROOM" && initialQuestion && (
         <InterviewRoom
+          key={`${sessionId}:${initialQuestion.id}`}
           sessionId={sessionId}
+          startedAt={startedAt}
+          durationMinutes={durationMinutes}
           initialQuestion={initialQuestion}
           onAnswerSubmit={handleAnswerSubmit}
-          onEndInterview={handleEndInterview}
+          onEndInterview={() => handleEndInterview()}
         />
       )}
 

@@ -1,18 +1,35 @@
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
-import { setSessionCookie } from "@/lib/auth/session";
-import { normalizeEmail, validateRegistration, type RegisterInput } from "@/lib/validation/auth";
-import type { Role } from "@prisma/client";
+import { AuthError } from "@/lib/auth/errors";
+import { sendEmailVerification } from "@/lib/services/auth/email-tokens";
+import {
+  normalizeEmail,
+  isPublicRegistrationRole,
+  validateRegistration,
+  type RegisterInput,
+} from "@/lib/validation/auth";
 
 export async function registerUser(input: RegisterInput) {
   // 1. Server-side validation
   const validation = validateRegistration(input);
   if (!validation.isValid) {
-    throw new Error(Object.values(validation.errors)[0] || "Invalid registration input.");
+    throw new AuthError(
+      Object.values(validation.errors)[0] || "Invalid registration input.",
+      "INVALID_REGISTRATION",
+      400,
+    );
   }
 
   const normalizedEmail = normalizeEmail(input.email!);
-  const targetRole = (input.role || "CANDIDATE") as Role;
+  const requestedRole = input.role || "CANDIDATE";
+  if (!isPublicRegistrationRole(requestedRole)) {
+    throw new AuthError(
+      "This role cannot be selected during public registration.",
+      "INVALID_ROLE",
+      400,
+    );
+  }
+  const targetRole = requestedRole;
 
   // 2. Check for duplicate email
   const existingUser = await db.user.findUnique({
@@ -20,7 +37,11 @@ export async function registerUser(input: RegisterInput) {
   });
 
   if (existingUser) {
-    throw new Error("An account with this email already exists.");
+    throw new AuthError(
+      "An account with this email already exists.",
+      "ACCOUNT_EXISTS",
+      409,
+    );
   }
 
   // 3. Hash password using bcryptjs
@@ -53,6 +74,7 @@ export async function registerUser(input: RegisterInput) {
         data: {
           userId: newUser.id,
           companyName: userName,
+          verificationStatus: "PENDING",
         },
       });
     } else if (targetRole === "INSTITUTE_ADMIN") {
@@ -60,6 +82,7 @@ export async function registerUser(input: RegisterInput) {
         data: {
           name: userName,
           contactPhone: input.phone || null,
+          verificationStatus: "PENDING",
         },
       });
       await tx.user.update({
@@ -91,19 +114,23 @@ export async function registerUser(input: RegisterInput) {
     return { user: newUser, redirectUrl: destination };
   });
 
-  // 5. Issue session cookie
-  await setSessionCookie({
-    userId: user.id,
-    role: user.role,
-    email: user.email,
-  });
+  try {
+    await sendEmailVerification(user);
+  } catch {
+    throw new AuthError(
+      "Your account was created, but the verification email could not be sent. Use the resend link on the sign-in page.",
+      "EMAIL_DELIVERY_FAILED",
+      503,
+    );
+  }
 
-  // 6. Return safe user data
+  // A password signup remains unauthenticated until the email link is consumed.
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
+    verificationRequired: true,
     redirectUrl,
   };
 }

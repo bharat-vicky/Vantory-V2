@@ -34,6 +34,7 @@ export interface CandidateIntelligenceProfile {
 }
 
 export interface InterviewSetupConfig {
+  jobId?:string;
   resumeId?: string;
   targetJobTitle: string;
   companyName?: string;
@@ -45,6 +46,13 @@ export interface InterviewSetupConfig {
 }
 
 export interface QuestionEvaluation {
+  assessedSkill?: string;
+  questionRubricVersion?: string;
+  assessmentVersion?: string;
+  provider?: string;
+  model?: string;
+  evidenceQuotes?: string[];
+  assessedDimensions?: string[];
   technicalAccuracy: number; // 0-100
   relevance: number;        // 0-100
   depth: number;            // 0-100
@@ -102,15 +110,18 @@ export interface InterviewSessionState {
 }
 
 export interface CategoryScoreBreakdown {
-  technicalScore: number;
-  communicationScore: number;
-  roleAlignmentScore: number;
-  projectKnowledgeScore: number;
-  behavioralScore: number;
-  problemSolvingScore: number;
+  technicalScore: number | null;
+  communicationScore: number | null;
+  roleAlignmentScore: number | null;
+  projectKnowledgeScore: number | null;
+  behavioralScore: number | null;
+  problemSolvingScore: number | null;
 }
 
 export interface PreparationPlanDay {
+  topicId?: string;
+  practiceUrl?: string;
+  sourceQuestionIndex?: number;
   day: number;
   topic: string;
   whyItMatters: string;
@@ -120,14 +131,16 @@ export interface PreparationPlanDay {
 }
 
 export interface FinalInterviewReport {
+  assessmentVersion?: string;
+  assessmentStatus?: "ASSESSED" | "INSUFFICIENT_EVIDENCE" | "HISTORICAL_UNVALIDATED";
   sessionId: string;
   targetJobTitle: string;
   companyName?: string;
-  overallScore: number;
-  readinessScore: number;
-  readinessLevel: "Excellent" | "Strong" | "Developing" | "Needs Preparation" | "Significant Preparation Needed";
+  overallScore: number | null;
+  readinessScore: number | null;
+  readinessLevel: "Not assessed" | "Excellent" | "Strong" | "Developing" | "Needs Preparation" | "Significant Preparation Needed";
   categoryBreakdown: CategoryScoreBreakdown;
-  roleReadinessBreakdown: Record<string, number>;
+  roleReadinessBreakdown: Record<string, number | null>;
   strongestAreas: string[];
   areasToImprove: string[];
   questionReviews: Array<{
@@ -141,8 +154,8 @@ export interface FinalInterviewReport {
   }>;
   preparationPlan: PreparationPlanDay[];
   historyProgression: {
-    previousAverage: number;
-    currentAverage: number;
-    improvement: number;
+    previousAverage: number | null;
+    currentAverage: number | null;
+    improvement: number | null;
   };
 }

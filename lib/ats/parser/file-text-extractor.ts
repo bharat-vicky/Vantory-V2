@@ -1,112 +1,91 @@
-/**
- * Universal PDF, DOCX, and TXT Resume Text Extractor
- * Converts uploaded binary buffers into clean plain text for ATS analysis.
- */
+export const MAX_RESUME_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MIN_EXTRACTED_TEXT_LENGTH = 30;
 
 export async function extractTextFromFile(file: File): Promise<string> {
-  const fileName = file.name.toLowerCase();
+  if (file.size === 0) {
+    throw new Error("The selected file is empty.");
+  }
+  if (file.size > MAX_RESUME_UPLOAD_BYTES) {
+    throw new Error("Resume files must be 5 MB or smaller.");
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (!extension || !["pdf", "docx", "txt"].includes(extension)) {
+    throw new Error("Choose a PDF, DOCX, or TXT resume.");
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let extractedText: string;
+
+  if (extension === "txt") {
+    extractedText = new TextDecoder().decode(bytes);
+  } else if (extension === "pdf") {
+    if (new TextDecoder("ascii").decode(bytes.subarray(0, 5)) !== "%PDF-") {
+      throw new Error("The selected file is not a valid PDF.");
+    }
+    extractedText = await extractPdfText(bytes);
+  } else {
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+      throw new Error("The selected file is not a valid DOCX document.");
+    }
+    const mammothModule = await import("mammoth");
+    const result = await mammothModule.default.extractRawText({
+      arrayBuffer: bytes.buffer,
+    });
+    extractedText = result.value;
+  }
+
+  const cleanedText = cleanExtractedText(extractedText);
+  if (cleanedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
+    throw new Error(
+      "No readable resume text was found. Try a text-based PDF, DOCX, or TXT file.",
+    );
+  }
+
+  return cleanedText;
+}
+
+async function extractPdfText(data: Uint8Array): Promise<string> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  if (typeof window !== "undefined") {
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/legacy/build/pdf.worker.mjs",
+      import.meta.url,
+    ).toString();
+  }
+
+  const document = await pdfjs.getDocument({
+    data,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
 
   try {
-    if (fileName.endsWith(".txt")) {
-      const text = await file.text();
-      return cleanExtractedText(text);
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item) => {
+          if (!("str" in item)) return "";
+          return `${item.str}${item.hasEOL ? "\n" : " "}`;
+        })
+        .join("");
+      pages.push(pageText);
     }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    if (fileName.endsWith(".docx")) {
-      const docxText = extractTextFromDocxBuffer(buffer);
-      if (docxText.length > 50) return docxText;
-    }
-
-    if (fileName.endsWith(".pdf")) {
-      const pdfText = extractTextFromPdfBuffer(buffer);
-      if (pdfText.length > 50) return pdfText;
-    }
-
-    // Fallback: UTF-8 text extraction
-    const rawText = await file.text();
-    const cleaned = cleanExtractedText(rawText);
-    if (cleaned.length > 50) return cleaned;
-
-    return `Resume extracted from ${file.name}`;
-  } catch (err) {
-    console.error("File extraction error:", err);
-    return `Resume content from ${file.name}`;
+    return pages.join("\n");
+  } finally {
+    await document.destroy();
   }
-}
-
-function extractTextFromDocxBuffer(buffer: Buffer): string {
-  const str = buffer.toString("binary");
-  
-  // Extract text inside Word XML tags <w:t>...</w:t>
-  const matches: string[] = [];
-  const regex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
-  let match;
-
-  while ((match = regex.exec(str)) !== null) {
-    if (match[1] && match[1].trim()) {
-      matches.push(match[1].trim());
-    }
-  }
-
-  if (matches.length > 0) {
-    return cleanExtractedText(matches.join(" "));
-  }
-
-  // Fallback XML tag stripping
-  const xmlStripped = str.replace(/<[^>]+>/g, " ");
-  return cleanExtractedText(xmlStripped);
-}
-
-function extractTextFromPdfBuffer(buffer: Buffer): string {
-  const str = buffer.toString("latin1");
-  const textBlocks: string[] = [];
-
-  // Match PDF text objects inside (text) Tj or [(text)] TJ
-  const tjRegex = /\(([^()]{2,})\)\s*T[jJ]/g;
-  let match;
-
-  while ((match = tjRegex.exec(str)) !== null) {
-    const rawSnippet = match[1];
-    const cleanedSnippet = rawSnippet
-      .replace(/\\\( /g, "(")
-      .replace(/\\\)/g, ")")
-      .replace(/\\n/g, " ")
-      .replace(/\\r/g, " ")
-      .replace(/\\t/g, " ")
-      .replace(/\\[0-7]{3}/g, " ");
-
-    if (/[a-zA-Z0-9]{2,}/.test(cleanedSnippet)) {
-      textBlocks.push(cleanedSnippet.trim());
-    }
-  }
-
-  if (textBlocks.length > 10) {
-    return cleanExtractedText(textBlocks.join(" "));
-  }
-
-  // Secondary PDF string extraction
-  const stringRegex = /\(([\w\s.,@+\-#()/:]{3,})\)/g;
-  const secondaryBlocks: string[] = [];
-
-  while ((match = stringRegex.exec(str)) !== null) {
-    if (match[1] && match[1].trim().length > 3) {
-      secondaryBlocks.push(match[1].trim());
-    }
-  }
-
-  if (secondaryBlocks.length > 0) {
-    return cleanExtractedText(secondaryBlocks.join(" "));
-  }
-
-  return cleanExtractedText(str);
 }
 
 function cleanExtractedText(text: string): string {
   return text
-    .replace(/[^\x20-\x7E\n\r\t]/g, " ") // Remove non-printable ASCII characters
-    .replace(/\s+/g, " ")               // Collapse multiple spaces
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[\t ]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
     .trim();
 }

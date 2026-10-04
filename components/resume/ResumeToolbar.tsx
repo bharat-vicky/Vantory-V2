@@ -1,29 +1,48 @@
 "use client";
 
 import React, { useState } from "react";
-import { Download, RotateCcw, Check, Sparkles, Layout, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Download,
+  RotateCcw,
+  Check,
+  Sparkles,
+  Layout,
+  AlertCircle,
+  Loader2,
+  Code2,
+  Ruler,
+  Type,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { DropdownMenu } from "@/components/ui/dropdown";
-import { ResumeSettings } from "@/lib/resume/types";
+import { ResumeData, ResumeSettings } from "@/lib/resume/types";
 
 export interface ResumeToolbarProps {
+  resumeData: ResumeData;
   settings: ResumeSettings;
+  onBeforeAnalyze: () => Promise<void>;
   onSettingsChange: (settings: ResumeSettings) => void;
   saveStatus: "saving" | "saved" | "unsaved";
   onReset: () => void;
   onDownloadPdf: () => void;
+  onDownloadTex: () => void;
   isDownloadingPdf?: boolean;
+  isDownloadingTex?: boolean;
 }
 
 export function ResumeToolbar({
+  resumeData,
   settings,
+  onBeforeAnalyze,
   onSettingsChange,
   saveStatus,
   onReset,
   onDownloadPdf,
+  onDownloadTex,
   isDownloadingPdf = false,
+  isDownloadingTex = false,
 }: ResumeToolbarProps) {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isAtsModalOpen, setIsAtsModalOpen] = useState(false);
@@ -31,16 +50,43 @@ export function ResumeToolbar({
   const [companyName, setCompanyName] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [isAnalyzingAts, setIsAnalyzingAts] = useState(false);
-  const [atsResult, setAtsResult] = useState<{ overallScore: number; confidenceLevel: string } | null>(null);
+  const [atsResult, setAtsResult] = useState<{
+    overallScore: number;
+    confidenceLevel: string;
+  } | null>(null);
   const [atsError, setAtsError] = useState<string | null>(null);
 
   const templateOptions = [
-    { id: "classic-monochrome", label: "Classic Monochrome (LaTeX Standard)", shortLabel: "Classic Monochrome" },
-    { id: "latex-classic", label: "Overleaf Classic (Single Column)", shortLabel: "Overleaf Classic" },
-    { id: "latex-minimal", label: "LaTeX Minimal (Compact)", shortLabel: "LaTeX Minimal" },
+    {
+      id: "classic-monochrome",
+      label: "Classic Monochrome",
+      shortLabel: "Classic Monochrome",
+    },
+    {
+      id: "latex-classic",
+      label: "Classic Serif",
+      shortLabel: "Classic Serif",
+    },
+    {
+      id: "latex-minimal",
+      label: "Minimal Sans",
+      shortLabel: "Minimal Sans",
+    },
   ];
+  const marginOptions = [
+    { id: "compact", label: "Compact margins" },
+    { id: "normal", label: "Normal margins" },
+    { id: "spacious", label: "Spacious margins" },
+  ] as const;
+  const fontSizeOptions = [
+    { id: "sm", label: "Small text" },
+    { id: "md", label: "Medium text" },
+    { id: "lg", label: "Large text" },
+  ] as const;
 
-  const activeTemplate = templateOptions.find((t) => t.id === settings.templateId) || templateOptions[0];
+  const activeTemplate =
+    templateOptions.find((t) => t.id === settings.templateId) ||
+    templateOptions[0];
 
   const handleRunAtsCheck = async () => {
     if (!jobDescription.trim()) {
@@ -53,10 +99,13 @@ export function ResumeToolbar({
     setAtsResult(null);
 
     try {
+      await onBeforeAnalyze();
       const res = await fetch("/api/ats/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          resumeId: resumeData.id,
+          resumeData,
           targetJobTitle,
           companyName,
           jobDescription,
@@ -68,9 +117,13 @@ export function ResumeToolbar({
         throw new Error(data.error || "Failed to analyze ATS match.");
       }
 
+      if (!data.snapshot || typeof data.snapshot.jobMatchScore !== "number") {
+        throw new Error("ATS analysis returned an invalid score.");
+      }
+
       setAtsResult({
-        overallScore: data.report.overallScore,
-        confidenceLevel: data.report.confidenceLevel,
+        overallScore: data.snapshot.jobMatchScore,
+        confidenceLevel: data.snapshot.confidenceLevel,
       });
     } catch (err: unknown) {
       setAtsError(err instanceof Error ? err.message : "ATS analysis failed.");
@@ -97,7 +150,8 @@ export function ResumeToolbar({
           Smart Resume Builder
         </h1>
         <p className="text-xs text-neutral-500 mt-0.5">
-          Auto-populated with your profile. LaTeX-based ATS architecture with live A4 preview.
+          ATS-aware templates with live A4 preview, PDF, and LaTeX source
+          export.
         </p>
       </div>
 
@@ -106,17 +160,74 @@ export function ResumeToolbar({
         <DropdownMenu
           align="right"
           trigger={
-            <Button variant="outline" size="sm" leftIcon={<Layout className="w-4 h-4" />}>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Layout className="w-4 h-4" />}
+            >
               Template: {activeTemplate.shortLabel}
             </Button>
           }
           items={templateOptions.map((t) => ({
             label: t.label,
-            icon: settings.templateId === t.id ? <Check className="w-4 h-4 text-neutral-950 stroke-[3]" /> : undefined,
+            icon:
+              settings.templateId === t.id ? (
+                <Check className="w-4 h-4 text-neutral-950 stroke-[3]" />
+              ) : undefined,
             onClick: () =>
               onSettingsChange({
                 ...settings,
                 templateId: t.id as ResumeSettings["templateId"],
+              }),
+          }))}
+        />
+
+        <DropdownMenu
+          align="right"
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Type className="w-4 h-4" />}
+            >
+              Text: {settings.fontSize.toUpperCase()}
+            </Button>
+          }
+          items={fontSizeOptions.map((option) => ({
+            label: option.label,
+            icon:
+              settings.fontSize === option.id ? (
+                <Check className="w-4 h-4 text-neutral-950 stroke-[3]" />
+              ) : undefined,
+            onClick: () =>
+              onSettingsChange({
+                ...settings,
+                fontSize: option.id,
+              }),
+          }))}
+        />
+
+        <DropdownMenu
+          align="right"
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Ruler className="w-4 h-4" />}
+            >
+              Margins: {settings.margins}
+            </Button>
+          }
+          items={marginOptions.map((option) => ({
+            label: option.label,
+            icon:
+              settings.margins === option.id ? (
+                <Check className="w-4 h-4 text-neutral-950 stroke-[3]" />
+              ) : undefined,
+            onClick: () =>
+              onSettingsChange({
+                ...settings,
+                margins: option.id,
               }),
           }))}
         />
@@ -151,6 +262,15 @@ export function ResumeToolbar({
         >
           Download PDF
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          isLoading={isDownloadingTex}
+          onClick={onDownloadTex}
+          leftIcon={<Code2 className="w-4 h-4" />}
+        >
+          Download .tex
+        </Button>
       </div>
 
       {/* Reset Confirmation Modal */}
@@ -158,10 +278,14 @@ export function ResumeToolbar({
         isOpen={isResetModalOpen}
         onClose={() => setIsResetModalOpen(false)}
         title="Reset Resume Data?"
-        description="This will restore your resume to default profile information. Custom edits will be overwritten."
+        description="This restores the resume as it was when you opened the builder. Changes made since then will be overwritten."
       >
         <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
-          <Button variant="outline" size="sm" onClick={() => setIsResetModalOpen(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsResetModalOpen(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -214,7 +338,7 @@ export function ResumeToolbar({
                   variant="outline"
                   size="sm"
                   className="bg-white text-black hover:bg-neutral-200 border-none font-bold"
-                  onClick={() => window.location.href = "/ats-checker"}
+                  onClick={() => (window.location.href = "/ats-checker")}
                 >
                   View Detailed Breakdown →
                 </Button>
@@ -283,9 +407,17 @@ export function ResumeToolbar({
                   size="sm"
                   disabled={isAnalyzingAts}
                   onClick={handleRunAtsCheck}
-                  leftIcon={isAnalyzingAts ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  leftIcon={
+                    isAnalyzingAts ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )
+                  }
                 >
-                  {isAnalyzingAts ? "Analyzing ATS Match..." : "Calculate ATS Score"}
+                  {isAnalyzingAts
+                    ? "Analyzing ATS Match..."
+                    : "Calculate ATS Score"}
                 </Button>
               </div>
             </>

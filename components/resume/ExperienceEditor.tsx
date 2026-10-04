@@ -15,17 +15,14 @@ export function ExperienceEditor({ items, onChange }: ExperienceEditorProps) {
   const addItem = () => {
     const newItem: ResumeExperienceItem = {
       id: `exp-${Date.now()}`,
-      role: "Software Engineer",
-      company: "Company Name",
-      location: "Bengaluru, India",
-      startDate: "2024",
-      endDate: "Present",
-      isCurrent: true,
+      role: "",
+      company: "",
+      location: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
       description: "",
-      bullets: [
-        "Engineered scalable microservices handling high throughput requests.",
-        "Optimized frontend bundle size resulting in 35% faster page load times.",
-      ],
+      bullets: [],
     };
     onChange([...items, newItem]);
   };
@@ -34,23 +31,32 @@ export function ExperienceEditor({ items, onChange }: ExperienceEditorProps) {
     onChange(items.filter((i) => i.id !== id));
   };
 
-  const updateItem = (id: string, field: keyof ResumeExperienceItem, value: unknown) => {
+  const updateItem = (
+    id: string,
+    field: keyof ResumeExperienceItem,
+    value: unknown,
+  ) => {
     onChange(
-      items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+      items.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item,
+      ),
     );
   };
 
   const updateBullets = (id: string, bulletsText: string) => {
     const list = bulletsText.split("\n").filter((b) => b.trim());
     onChange(
-      items.map((item) => (item.id === id ? { ...item, bullets: list } : item))
+      items.map((item) => (item.id === id ? { ...item, bullets: list } : item)),
     );
   };
 
   return (
     <div className="space-y-4">
       {items.map((item, idx) => (
-        <div key={item.id || idx} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3">
+        <div
+          key={item.id || idx}
+          className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3"
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 font-bold text-xs text-neutral-900">
               <Briefcase className="w-3.5 h-3.5 text-neutral-600" />

@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  Bookmark,
-  Trash2,
-  Briefcase,
-  ArrowLeft,
-  Send,
-} from "lucide-react";
+import { Bookmark, Trash2, Briefcase, ArrowLeft, Send } from "lucide-react";
 import { ApplyJobModal } from "@/components/jobs/ApplyJobModal";
 
 interface SavedJobItem {
@@ -29,20 +23,34 @@ interface SavedJobItem {
 export default function SavedJobsPage() {
   const [savedJobs, setSavedJobs] = useState<SavedJobItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [applyModalJob, setApplyModalJob] = useState<{ id: string; title: string; company: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [applyModalJob, setApplyModalJob] = useState<{
+    id: string;
+    title: string;
+    company: string;
+  } | null>(null);
 
   const fetchSavedJobs = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/jobs/saved");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.savedJobs)) {
-          setSavedJobs(json.savedJobs);
-        }
+      if (!res.ok) {
+        setLoadError(
+          "Your saved jobs could not be loaded. Sign in as a candidate and try again.",
+        );
+        return;
+      }
+      const json = await res.json();
+      if (json.success && Array.isArray(json.savedJobs)) {
+        setSavedJobs(json.savedJobs);
+      } else {
+        setLoadError("Your saved jobs could not be loaded. Please try again.");
       }
     } catch {
-      // Handle silently
+      setLoadError(
+        "Your saved jobs could not be loaded. Please check your connection and retry.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -90,8 +98,25 @@ export default function SavedJobsPage() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-6 h-28 animate-pulse shadow-sm"></div>
+            <div
+              key={i}
+              className="bg-white border border-neutral-200 rounded-2xl p-6 h-28 animate-pulse shadow-sm"
+            ></div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div
+          role="alert"
+          className="mx-auto max-w-lg space-y-4 border border-neutral-200 p-8 text-center"
+        >
+          <p className="text-sm text-neutral-700">{loadError}</p>
+          <button
+            type="button"
+            onClick={fetchSavedJobs}
+            className="text-sm font-semibold underline underline-offset-4"
+          >
+            Try again
+          </button>
         </div>
       ) : savedJobs.length === 0 ? (
         <div className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-12 text-center space-y-4 max-w-lg mx-auto">
@@ -99,9 +124,12 @@ export default function SavedJobsPage() {
             <Bookmark className="w-7 h-7 text-neutral-500" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-neutral-950">No saved jobs yet</h3>
+            <h3 className="text-base font-bold text-neutral-950">
+              No saved jobs yet
+            </h3>
             <p className="text-xs text-neutral-500">
-              Save interesting corporate opportunities while browsing the marketplace and come back to review them anytime.
+              Save interesting corporate opportunities while browsing the
+              marketplace and come back to review them anytime.
             </p>
           </div>
           <Link
@@ -126,7 +154,9 @@ export default function SavedJobsPage() {
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-extrabold text-neutral-950">{job.company}</span>
+                    <span className="text-xs font-extrabold text-neutral-950">
+                      {job.company}
+                    </span>
                     {job.verificationStatus === "VERIFIED" && (
                       <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-neutral-100 text-neutral-800 border border-neutral-200">
                         Verified
@@ -143,7 +173,9 @@ export default function SavedJobsPage() {
                     <span>•</span>
                     <span>{job.workMode}</span>
                     <span>•</span>
-                    <span className="text-neutral-950 font-bold">{job.salary || "Competitive"}</span>
+                    <span className="text-neutral-950 font-bold">
+                      {job.salary || "Competitive"}
+                    </span>
                   </div>
                 </div>
               </div>

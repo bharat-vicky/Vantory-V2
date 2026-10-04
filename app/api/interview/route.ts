@@ -1,87 +1,27 @@
+import { jobPreparationDescription } from "@/lib/jobs/context";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/authorization";
+import { requireCandidate } from "@/lib/auth/authorization";
 import { db } from "@/lib/db";
-
-export async function POST(request: Request) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const {
-      resumeId,
-      uploadedResumeText,
-      uploadedFileName,
-      jobId,
-      targetJobTitle,
-      companyName,
-      jobDescription,
-      interviewType = "FULL",
-      difficulty = "Medium",
-      interviewerStyle = "Professional",
-      durationMinutes = 20,
-    } = body;
-
-    if (!targetJobTitle || !jobDescription) {
-      return NextResponse.json(
-        { success: false, error: "Target Job Title and Job Description are required." },
-        { status: 400 }
-      );
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sessionData: any = {
-      userId: user.id,
-      targetJobTitle,
-      jobRole: targetJobTitle,
-      companyName: companyName || null,
-      jobDescription,
-      interviewType,
-      difficulty,
-      interviewerStyle,
-      durationMinutes: Number(durationMinutes) || 20,
-      status: "CREATED",
-      currentDifficulty: difficulty,
-      currentQuestionIndex: 0,
-      sessionStateJson: JSON.stringify({
-        uploadedResumeText: uploadedResumeText || null,
-        uploadedFileName: uploadedFileName || null,
-        coveredTopics: [],
-        weakTopics: [],
-        strongTopics: [],
-      }),
-    };
-
-    if (resumeId && typeof resumeId === "string" && resumeId.trim()) {
-      sessionData.resumeId = resumeId;
-    }
-    if (jobId && typeof jobId === "string" && jobId.trim()) {
-      sessionData.jobId = jobId;
-    }
-
-    const session = await db.interviewSession.create({
-      data: sessionData,
-    });
-
-    return NextResponse.json({
-      success: true,
-      sessionId: session.id,
-      session,
-    });
-  } catch (err: unknown) {
-    console.error("Create Interview Error:", err);
-    return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Failed to setup interview session." },
-      { status: 500 }
-    );
-  }
-}
-
+import { ApiError, apiError, objectId } from "@/lib/api-error";
+export async function POST(request:Request) {try {
+ const user=await requireCandidate(); const b=await request.json();
+ const str=(v:unknown,max:number)=>typeof v==="string" ? v.trim().slice(0,max):"";
+ const title=str(b.targetJobTitle,150), jd=str(b.jobDescription,30000);
+ if(!title || !jd) throw new ApiError("Target title and job description are required.");
+ const type=b.interviewType || "FULL", difficulty=b.difficulty || "Medium", style=b.interviewerStyle || "Professional", duration=Number(b.durationMinutes || 20);
+ if(!["FULL","TECHNICAL","BEHAVIORAL","RESUME_BASED","JOB_SPECIFIC"].includes(type) || !["Easy","Medium","Hard","Expert"].includes(difficulty) || !["Professional","Friendly","Strict","FAANG-style","Startup-style"].includes(style) || !Number.isInteger(duration) || duration<5 || duration>60) throw new ApiError("Invalid interview configuration.");
+ if(!process.env.GEMINI_API_KEY) throw new ApiError("Interview assessment is temporarily unavailable. Try again later.",503,"AI_UNAVAILABLE");
+ let resumeContent=str(b.uploadedResumeText,50000);let resumeRevision:string|undefined;
+ if(b.resumeId) {if(!objectId(b.resumeId)) throw new ApiError("Invalid resume ID.");const r=await db.resume.findFirst({where:{id:b.resumeId,userId:user.id}});if(!r) throw new ApiError("Resume not found.",404);resumeContent=r.contentJson;resumeRevision=r.updatedAt.toISOString();}
+ if(b.jobId) {if(!objectId(b.jobId)) throw new ApiError("Invalid job ID.");const j=await db.jobPosting.findFirst({where:{id:b.jobId,status:"ACTIVE",verificationStatus:"VERIFIED"}});if(!j || (j.expiresAt && j.expiresAt<new Date())) throw new ApiError("Job is not available.",404);if(jobPreparationDescription(j)!==jd || j.title!==title) throw new ApiError("Job context changed. Refresh the job workspace.",409);}
+ const limit=checkRateLimit(`interview-create:${user.id}`,8,15*60*1000);if(!limit.allowed)throw new ApiError("Interview creation limit reached. Try again later.",429);
+ const session=await db.interviewSession.create({data:{userId:user.id,resumeId:b.resumeId || null,jobId:b.jobId || null,targetJobTitle:title,jobRole:title,companyName:str(b.companyName,150) || null,jobDescription:jd,interviewType:type,difficulty,interviewerStyle:style,durationMinutes:duration,currentDifficulty:difficulty,assessmentVersion:"rubric.v2",sessionStateJson:JSON.stringify({version:3,resumeContent,resumeRevision})}});
+ return NextResponse.json({success:true,sessionId:session.id});
+} catch(e){return apiError(e);}}
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const user = await requireCandidate();
     if (!user) {
       return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
     }
@@ -101,17 +41,18 @@ export async function GET() {
         readinessScore: true,
         readinessLevel: true,
         createdAt: true,
+        assessmentVersion: true,
       },
     });
 
-    const completed = sessions.filter((s) => s.status === "COMPLETED" && s.overallScore != null);
+    const completed = sessions.filter((s) => s.status === "COMPLETED" && s.assessmentVersion === "rubric.v2" && s.overallScore != null);
     const avgScore = completed.length > 0
       ? Math.round(completed.reduce((sum, s) => sum + (s.overallScore || 0), 0) / completed.length)
-      : 0;
+      : null;
 
     return NextResponse.json({
       success: true,
-      sessions,
+      sessions: sessions.map(s=>s.assessmentVersion === "rubric.v2" ? s:{...s,overallScore:null,readinessScore:null,readinessLevel:"Historical / unvalidated"}),
       stats: {
         totalInterviews: sessions.length,
         completedCount: completed.length,

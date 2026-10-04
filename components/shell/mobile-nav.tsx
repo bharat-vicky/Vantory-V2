@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, ChevronDown, ChevronUp, User, Settings, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { primaryNavItems, companyNavItems } from "./sidebar";
+import { primaryNavItems, companyNavItems, instituteNavItems } from "./sidebar";
 import { cn } from "@/lib/utils";
 
 export interface MobileNavProps {
@@ -26,7 +26,8 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
 
   const isCompanyContext = pathname.startsWith("/company") || user?.role === "COMPANY_ADMIN";
-  const navItems = isCompanyContext ? companyNavItems : primaryNavItems;
+  const isInstituteContext=pathname.startsWith("/institute") || user?.role==="INSTITUTE_ADMIN" || user?.role==="SUPER_ADMIN";
+  const navItems = isInstituteContext ? instituteNavItems : isCompanyContext ? companyNavItems : primaryNavItems;
 
   // Close drawer when pathname changes
   useEffect(() => {

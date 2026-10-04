@@ -21,33 +21,44 @@ export interface SafeUser {
  * Wrapped in React.cache() to deduplicate queries within the same request lifecycle.
  */
 export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
-  try {
-    const session = await getSession();
-    if (!session) return null;
+  const session = await getSession();
+  if (!session) return null;
 
-    const user = await db.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        profile: {
-          select: {
-            id: true,
-            headline: true,
-            avatarUrl: true,
-            completionScore: true,
-          },
+  const user = await db.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      emailVerifiedAt: true,
+      createdAt: true,
+      profile: {
+        select: {
+          id: true,
+          headline: true,
+          avatarUrl: true,
+          completionScore: true,
         },
       },
-    });
+    },
+  });
 
-    return user;
-  } catch {
+  if (
+    !user ||
+    user.isActive === false ||
+    !user.emailVerifiedAt ||
+    user.role !== session.role
+  ) {
     return null;
   }
+  const {
+    isActive: _isActive,
+    emailVerifiedAt: _emailVerifiedAt,
+    ...safeUser
+  } = user;
+  return safeUser;
 });
 
 /**
@@ -66,7 +77,7 @@ export async function requireUser(): Promise<SafeUser> {
  */
 export async function requireCandidate(): Promise<SafeUser> {
   const user = await requireUser();
-  if (user.role !== "CANDIDATE") {
+  if (!["CANDIDATE", "INSTITUTE_STUDENT"].includes(user.role)) {
     throw new Error("Forbidden. Candidate access required.");
   }
   return user;

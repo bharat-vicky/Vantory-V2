@@ -15,8 +15,8 @@ export function SkillsEditor({ skills, onChange }: SkillsEditorProps) {
   const addCategory = () => {
     const newCategory: ResumeSkillCategory = {
       id: `cat-${Date.now()}`,
-      category: "New Category",
-      skills: ["Skill 1", "Skill 2"],
+      category: "",
+      skills: [],
     };
     onChange([...skills, newCategory]);
   };
@@ -26,22 +26,21 @@ export function SkillsEditor({ skills, onChange }: SkillsEditorProps) {
   };
 
   const updateCategoryName = (id: string, name: string) => {
-    onChange(
-      skills.map((s) => (s.id === id ? { ...s, category: name } : s))
-    );
+    onChange(skills.map((s) => (s.id === id ? { ...s, category: name } : s)));
   };
 
   const updateSkillsString = (id: string, skillsText: string) => {
     const list = skillsText.split(",").map((s) => s.trim());
-    onChange(
-      skills.map((s) => (s.id === id ? { ...s, skills: list } : s))
-    );
+    onChange(skills.map((s) => (s.id === id ? { ...s, skills: list } : s)));
   };
 
   return (
     <div className="space-y-4">
       {skills.map((cat, idx) => (
-        <div key={cat.id || idx} className="bg-neutral-50 border border-neutral-200 rounded-xl p-3.5 space-y-2.5">
+        <div
+          key={cat.id || idx}
+          className="bg-neutral-50 border border-neutral-200 rounded-xl p-3.5 space-y-2.5"
+        >
           <div className="flex items-center justify-between gap-2">
             <Input
               placeholder="Category Name (e.g. Languages / Full-Stack / Cloud)"

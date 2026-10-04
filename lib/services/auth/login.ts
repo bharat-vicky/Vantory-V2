@@ -1,13 +1,25 @@
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { setSessionCookie } from "@/lib/auth/session";
-import { normalizeEmail, validateLogin, type LoginInput } from "@/lib/validation/auth";
+import { AuthError } from "@/lib/auth/errors";
+import { sendEmailVerification } from "@/lib/services/auth/email-tokens";
+import {
+  hasPortalAccess,
+  isPublicRegistrationRole,
+  normalizeEmail,
+  validateLogin,
+  type LoginInput,
+} from "@/lib/validation/auth";
 
 export async function loginUser(input: LoginInput) {
   // 1. Validate input
   const validation = validateLogin(input);
   if (!validation.isValid) {
-    throw new Error(Object.values(validation.errors)[0] || "Invalid email or password.");
+    throw new AuthError(
+      Object.values(validation.errors)[0] || "Invalid email or password.",
+      "INVALID_LOGIN",
+      400,
+    );
   }
 
   const normalizedEmail = normalizeEmail(input.email!);
@@ -19,21 +31,49 @@ export async function loginUser(input: LoginInput) {
 
   const GENERIC_ERROR = "Invalid email or password.";
 
-  if (!user) {
-    throw new Error(GENERIC_ERROR);
+  if (!user || user.isActive === false || !user.passwordHash) {
+    throw new AuthError(GENERIC_ERROR, "INVALID_CREDENTIALS", 401);
   }
 
   // 3. Verify password hash using bcryptjs
-  const isValidPassword = await verifyPassword(input.password!, user.passwordHash);
+  const isValidPassword = await verifyPassword(
+    input.password!,
+    user.passwordHash,
+  );
   if (!isValidPassword) {
-    throw new Error(GENERIC_ERROR);
+    throw new AuthError(GENERIC_ERROR, "INVALID_CREDENTIALS", 401);
   }
 
-  // 4. Determine redirect URL based on role
+  if (!user.emailVerifiedAt) {
+    await sendEmailVerification(user);
+    throw new AuthError(
+      "Verify your email before signing in. We sent you a new verification link.",
+      "EMAIL_NOT_VERIFIED",
+      403,
+    );
+  }
+
+  if (
+    input.expectedRole &&
+    (!isPublicRegistrationRole(input.expectedRole) ||
+      !hasPortalAccess(user.role, input.expectedRole))
+  ) {
+    throw new AuthError(
+      "This account does not have access to the selected portal.",
+      "PORTAL_ACCESS_DENIED",
+      403,
+    );
+  }
+
+  // 4. Determine redirect URL based on the selected portal
+  const redirectRole = input.expectedRole || user.role;
   let redirectUrl = "/dashboard";
-  if (user.role === "COMPANY_ADMIN") {
+  if (redirectRole === "COMPANY_ADMIN") {
     redirectUrl = "/company/dashboard";
-  } else if (user.role === "INSTITUTE_ADMIN" || user.role === "SUPER_ADMIN") {
+  } else if (
+    redirectRole === "INSTITUTE_ADMIN" ||
+    redirectRole === "SUPER_ADMIN"
+  ) {
     redirectUrl = "/institute/dashboard";
   }
 

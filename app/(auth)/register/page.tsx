@@ -19,8 +19,8 @@ function RegisterContent() {
     roleParam === "company" || roleParam === "employer"
       ? "company"
       : roleParam === "institute"
-      ? "institute"
-      : "candidate";
+        ? "institute"
+        : "candidate";
 
   return (
     <div className="w-full max-w-md mx-auto my-auto space-y-6 text-left">
@@ -47,6 +47,7 @@ function RegisterContent() {
         />
       ) : (
         <LoginForm
+          initialRole={initialRole}
           onSwitchToSignup={() => setMode("signup")}
           onSuccess={(dest) => {
             window.location.href = dest || "/dashboard";
@@ -95,11 +96,13 @@ export default function RegisterPage() {
           </div>
 
           <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-[1.15]">
-            Mission-critical career infrastructure and real-time ATS verification.
+            Mission-critical career infrastructure and real-time ATS
+            verification.
           </h2>
 
           <p className="text-xs sm:text-sm text-neutral-300 font-normal leading-relaxed">
-            Designed for scale, security, and sub-second resume parsing across high-throughput candidate drives.
+            Designed for scale, security, and sub-second resume parsing across
+            high-throughput candidate drives.
           </p>
         </div>
       </div>
@@ -119,7 +122,11 @@ export default function RegisterPage() {
         </div>
 
         {/* Center Auth Form Block Wrapped in Suspense */}
-        <Suspense fallback={<div className="w-full max-w-md mx-auto my-auto h-96 bg-neutral-100 rounded-2xl animate-pulse" />}>
+        <Suspense
+          fallback={
+            <div className="w-full max-w-md mx-auto my-auto h-96 bg-neutral-100 rounded-2xl animate-pulse" />
+          }
+        >
           <RegisterContent />
         </Suspense>
 

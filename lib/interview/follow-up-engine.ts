@@ -8,15 +8,17 @@ export class FollowUpEngine {
     followUpCount: number;
     maxFollowUpsAllowed?: number;
   }): boolean {
-    const { candidateAnswerText, evaluation, followUpCount, maxFollowUpsAllowed = 3 } = params;
+    const { evaluation, followUpCount, maxFollowUpsAllowed = 3 } = params;
 
     if (followUpCount >= maxFollowUpsAllowed) return false;
 
-    // Trigger follow-up if answer is brief or lacks depth
-    if (candidateAnswerText.trim().length < 60) return true;
-    if (evaluation.depth < 70) return true;
-    if (evaluation.completeness < 65) return true;
+    // Probe concrete omissions or unsupported claims, not response length.
     if (evaluation.credibilityConcern) return true;
+    if (!evaluation.missingElements.length) return false;
+    const applicable = evaluation.assessedDimensions || [];
+    if (applicable.includes("depth") && evaluation.depth < 70) return true;
+    if (applicable.includes("completeness") && evaluation.completeness < 65) return true;
+    if (applicable.includes("technicalAccuracy") && evaluation.technicalAccuracy < 70) return true;
 
     return false;
   }
@@ -42,7 +44,7 @@ export class FollowUpEngine {
 
     // Default follow-up probing template
     return {
-      questionText: `That's a helpful overview. Could you elaborate specifically on the underlying architecture, edge cases, and performance metrics for that solution?`,
+      questionText: `Clarify which part you personally did, how you checked the result, and any limitations of your previous answer.`,
       category: `${params.category} (Follow-Up)`,
     };
   }

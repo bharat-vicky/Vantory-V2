@@ -1,3 +1,4 @@
+import { apiError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/authorization";
 import { getCandidateApplications } from "@/lib/jobs/jobs-service";
@@ -16,7 +17,6 @@ export async function GET() {
       ...data,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    return apiError(error);
   }
 }

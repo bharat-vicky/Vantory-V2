@@ -49,8 +49,12 @@ export default function StudentImportPage() {
   const [importResult, setImportResult] = useState<{
     importedCount: number;
     skippedCount: number;
+    invitedCount?: number;
+    conflicts?: Array<{ row: number; reason: string }>;
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const invitationNotice = "New memberships require candidate acceptance in Profile. Share the Vantory signup link with new students; accounts are never assigned a shared password.";
 
   const parseCsvText = (text: string) => {
     setIsParsing(true);
@@ -242,6 +246,7 @@ export default function StudentImportPage() {
       setImportResult({
         importedCount: data.importedCount,
         skippedCount: data.skippedCount,
+        invitedCount:data.invitedCount,conflicts:data.conflicts,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to complete CSV import.";
@@ -259,10 +264,13 @@ export default function StudentImportPage() {
     <div className="flex h-screen bg-[#FAFAFA] text-neutral-950 font-sans overflow-hidden">
       <Sidebar />
 
+
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar" data-lenis-prevent="true">
         <Header />
 
         <main className="p-6 sm:p-10 space-y-8 max-w-7xl mx-auto w-full">
+          <p className="p-4 border rounded-xl text-sm">{invitationNotice}</p>
+          {importResult && <div role="status"><p>Invitations created: {importResult.invitedCount || 0}. Existing members: {importResult.importedCount}. Skipped: {importResult.skippedCount}.</p>{importResult.conflicts?.map((c,i)=><p key={i}>Row {c.row}: {c.reason}</p>)}</div>}
           {/* Top Header Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200/80 pb-6">
             <div className="flex items-center gap-3">
@@ -278,7 +286,7 @@ export default function StudentImportPage() {
                   Import Student Roster (CSV)
                 </h1>
                 <p className="text-xs text-neutral-500 font-mono mt-0.5">
-                  Upload institutional CSV files to populate student candidate accounts and readiness tracking.
+                  Upload institutional CSV files to invite candidates to join your placement roster.
                 </p>
               </div>
             </div>

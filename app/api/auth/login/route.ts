@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AuthError } from "@/lib/auth/errors";
 import { loginUser } from "@/lib/services/auth/login";
 
 export async function POST(request: Request) {
@@ -12,11 +13,16 @@ export async function POST(request: Request) {
       user,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Authentication failed.";
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { success: false, code: error.code, error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error("Login failed due to an unexpected server error.", error);
     return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 401 }
+      { success: false, error: "Sign-in is temporarily unavailable." },
+      { status: 503 },
     );
   }
 }

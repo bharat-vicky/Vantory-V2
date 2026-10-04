@@ -24,6 +24,7 @@ interface DbResume {
 }
 
 interface ApplyJobModalProps {
+  initialResumeId?:string;
   isOpen: boolean;
   onClose: () => void;
   jobId: string;
@@ -33,6 +34,7 @@ interface ApplyJobModalProps {
 }
 
 export function ApplyJobModal({
+  initialResumeId,
   isOpen,
   onClose,
   jobId,
@@ -75,7 +77,7 @@ export function ApplyJobModal({
           if (json.success && Array.isArray(json.resumes)) {
             setResumes(json.resumes);
             if (json.resumes.length > 0) {
-              setSelectedResumeId(json.resumes[0].id);
+              setSelectedResumeId(json.resumes.some((r:DbResume)=>r.id===initialResumeId)?initialResumeId!:json.resumes[0].id);
             }
           }
         }
@@ -87,7 +89,7 @@ export function ApplyJobModal({
     }
 
     loadCandidateResumes();
-  }, [isOpen]);
+  }, [isOpen,initialResumeId]);
 
   if (!isOpen) return null;
 
@@ -107,6 +109,7 @@ export function ApplyJobModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resumeId: selectedResumeId,
+          expectedResumeRevision: resumes.find(r=>r.id===selectedResumeId)?.updatedAt,
           coverNote,
         }),
       });

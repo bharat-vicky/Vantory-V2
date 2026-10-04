@@ -1,5 +1,6 @@
 "use client";
 
+import {Reminders} from "@/components/candidate/Reminders";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
@@ -30,7 +31,7 @@ interface AtsScanItem {
   id: string;
   targetJobTitle: string;
   companyName?: string;
-  jobMatchScore: number;
+  jobMatchScore: number | null;
   confidenceLevel: string;
   createdAt: string;
 }
@@ -58,6 +59,7 @@ export default function CandidateDashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
   const [atsScans, setAtsScans] = useState<AtsScanItem[]>([]);
+  const [applicationsCount,setApplicationsCount]=useState(0);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [savedJobsCount, setSavedJobsCount] = useState<number>(0);
   const [recentJobs, setRecentJobs] = useState<JobOpeningItem[]>([]);
@@ -74,6 +76,7 @@ export default function CandidateDashboardPage() {
             if (json.user) setUser(json.user);
             if (Array.isArray(json.resumes)) setResumes(json.resumes);
             if (Array.isArray(json.atsScans)) setAtsScans(json.atsScans);
+            setApplicationsCount(json.applicationsCount || 0);
             if (Array.isArray(json.applications)) setApplications(json.applications);
             if (typeof json.savedJobsCount === "number") setSavedJobsCount(json.savedJobsCount);
             if (Array.isArray(json.recentJobs)) setRecentJobs(json.recentJobs);
@@ -107,6 +110,7 @@ export default function CandidateDashboardPage() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-950 font-sans p-6 md:p-10 space-y-8">
+      <Reminders/>
       {/* Top Welcome Card */}
       <div className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-6 md:p-8 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -164,7 +168,7 @@ export default function CandidateDashboardPage() {
               <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
             <div className="text-2xl font-black text-neutral-950 font-mono">
-              {isLoading ? "-" : latestScan ? `${latestScan.jobMatchScore}/100` : "N/A"}
+              {isLoading ? "-" : latestScan?.jobMatchScore!=null ? `${latestScan.jobMatchScore}/100` : "Not assessed"}
             </div>
             <span className="text-[10px] text-neutral-500 block">
               {latestScan ? latestScan.targetJobTitle : "No ATS scans run yet"}
@@ -177,7 +181,7 @@ export default function CandidateDashboardPage() {
               <Briefcase className="w-4 h-4 text-neutral-500" />
             </div>
             <div className="text-2xl font-black text-neutral-950 font-mono">
-              {isLoading ? "-" : applications.length}
+              {isLoading ? "-" : applicationsCount}
             </div>
             <span className="text-[10px] text-neutral-500 block">Active corporate tracking</span>
           </div>
@@ -359,7 +363,7 @@ export default function CandidateDashboardPage() {
 
                     <div className="text-right shrink-0">
                       <div className="font-mono font-black text-neutral-950 text-base">
-                        {scan.jobMatchScore}<span className="text-[10px] text-neutral-400">/100</span>
+                        {scan.jobMatchScore ?? "Unvalidated"}{scan.jobMatchScore!=null && <span className="text-[10px] text-neutral-400">/100</span>}
                       </div>
                       <span className="text-[9px] font-mono font-bold text-neutral-500 uppercase">
                         {scan.confidenceLevel}

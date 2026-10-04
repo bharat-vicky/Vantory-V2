@@ -87,6 +87,7 @@ export interface ResumeSettings {
 }
 
 export interface ResumeData {
+  updatedAt?: string;
   id?: string;
   title: string;
   personalInfo: ResumePersonalInfo;
@@ -127,10 +128,10 @@ export const defaultResumeSettings: ResumeSettings = {
 };
 
 export const emptyResumeData: ResumeData = {
-  title: "Software Engineer Resume",
+  title: "Candidate Resume",
   personalInfo: {
     fullName: "",
-    headline: "Software Engineer",
+    headline: "",
     email: "",
     phone: "",
     location: "",
@@ -140,13 +141,7 @@ export const emptyResumeData: ResumeData = {
     leetcode: "",
   },
   summary: "",
-  skills: [
-    {
-      id: "sk-1",
-      category: "Technical Skills",
-      skills: ["JavaScript", "TypeScript", "React.js", "Next.js", "Node.js", "SQL"],
-    },
-  ],
+  skills: [],
   experience: [],
   education: [],
   projects: [],

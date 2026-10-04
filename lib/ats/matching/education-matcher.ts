@@ -17,39 +17,77 @@ export interface EducationMatchResult {
 
 export function evaluateEducationMatch(
   resume: UnifiedParsedResume,
-  jd: StructuredJobDescription
+  jd: StructuredJobDescription,
 ): EducationMatchResult {
-  if (resume.education.length === 0) {
+  if (!jd.educationRequirement) {
     return {
-      isSatisfied: false,
+      isSatisfied: true,
       score: 50,
-      notes: "No education entries listed on resume.",
+      notes: "The job description does not specify an education requirement.",
     };
   }
 
-  const primaryEdu = resume.education[0];
-  const degreeText = `${primaryEdu.degree} in ${primaryEdu.fieldOfStudy || "Computer Science"}`;
-
-  let score = 90;
-  let isSatisfied = true;
-  let notes = `Candidate holds ${degreeText} from ${primaryEdu.institution || "University"}.`;
-
-  const lowerEdu = `${primaryEdu.degree} ${primaryEdu.fieldOfStudy}`.toLowerCase();
-
-  if (/\b(bachelor|b\.tech|b\.e\.|bs|master|ms|m\.tech|phd)\b/.test(lowerEdu)) {
-    score = 100;
-    isSatisfied = true;
-  } else if (jd.educationRequirement && !/computer science|engineering|technology/i.test(lowerEdu)) {
-    score = 75;
-    notes = `Candidate degree is in a non-STEM field, but education requirement is partially satisfied.`;
+  if (resume.education.length === 0) {
+    return {
+      isSatisfied: false,
+      score: 0,
+      notes: `No education evidence was found for the stated requirement: ${jd.educationRequirement}`,
+    };
   }
+
+  const requirement = jd.educationRequirement.toLowerCase();
+  const requiredDegree = requirement.match(
+    /\b(bachelor|master|phd|doctorate|associate)\b/,
+  )?.[0];
+  const requiredFields = [
+    "computer science",
+    "software engineering",
+    "engineering",
+    "information technology",
+    "mathematics",
+    "physics",
+  ].filter((field) => requirement.includes(field));
+  const degreesByType: Record<string, string[]> = {
+    bachelor: ["bachelor", "b.tech", "b.e.", "b.s.", "b.a."],
+    master: ["master", "m.tech", "m.e.", "m.s.", "m.a."],
+    phd: ["phd", "doctorate", "doctor of philosophy"],
+    doctorate: ["phd", "doctorate", "doctor of philosophy"],
+    associate: ["associate"],
+  };
+  const matchingEducation = resume.education.find((item) => {
+    const candidate = `${item.degree} ${item.fieldOfStudy}`.toLowerCase();
+    const degreeMatches =
+      !requiredDegree ||
+      degreesByType[requiredDegree].some((degree) =>
+        candidate.includes(degree),
+      );
+    const fieldMatches =
+      requiredFields.length === 0 ||
+      requiredFields.some((field) => candidate.includes(field)) ||
+      (requirement.includes("related field") &&
+        /computer|software|engineering|technology|math|physics/i.test(
+          candidate,
+        ));
+    return degreeMatches && fieldMatches;
+  });
+  const primaryEdu = matchingEducation || resume.education[0];
+  const degreeText = [primaryEdu.degree, primaryEdu.fieldOfStudy]
+    .filter(Boolean)
+    .join(" in ");
+  const isSatisfied = Boolean(matchingEducation);
+  const score = isSatisfied ? 100 : 30;
+  const notes = isSatisfied
+    ? `Resume education evidence matches the stated requirement: ${jd.educationRequirement}.`
+    : `The listed education could not be matched to the stated requirement: ${jd.educationRequirement}.`;
 
   return {
     isSatisfied,
     score,
     degreeFound: primaryEdu.degree,
     institutionFound: primaryEdu.institution,
-    evidenceText: `${degreeText} — ${primaryEdu.institution}`,
+    evidenceText:
+      [degreeText, primaryEdu.institution].filter(Boolean).join(" — ") ||
+      undefined,
     notes,
   };
 }

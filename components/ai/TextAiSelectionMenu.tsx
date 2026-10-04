@@ -1,18 +1,35 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Sparkles, Send, Check, Copy, RefreshCw, X, ArrowRight, Bot, MessageSquare } from "lucide-react";
+import {
+  Sparkles,
+  Send,
+  Check,
+  Copy,
+  RefreshCw,
+  X,
+  ArrowRight,
+  Bot,
+  MessageSquare,
+} from "lucide-react";
 import { ResumeData } from "@/lib/resume/types";
+import { replaceUniqueResumeText } from "@/lib/resume/text-replacement";
 
 export interface TextAiSelectionMenuProps {
   resumeData: ResumeData;
   onUpdateResume: (updated: ResumeData) => void;
 }
 
-export function TextAiSelectionMenu({ resumeData, onUpdateResume }: TextAiSelectionMenuProps) {
+export function TextAiSelectionMenu({
+  resumeData,
+  onUpdateResume,
+}: TextAiSelectionMenuProps) {
   const [selectedText, setSelectedText] = useState("");
   const [sectionContext, setSectionContext] = useState("Resume Content");
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [enhancedText, setEnhancedText] = useState("");
@@ -20,25 +37,35 @@ export function TextAiSelectionMenu({ resumeData, onUpdateResume }: TextAiSelect
   const [customPrompt, setCustomPrompt] = useState("");
   const [error, setError] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-  const [appliedOption, setAppliedOption] = useState<"primary" | "alternative" | null>(null);
+  const [appliedOption, setAppliedOption] = useState<
+    "primary" | "alternative" | null
+  >(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Detect section context automatically
-  const detectSectionName = (node: Node | null, activeEl: Element | null): string => {
+  const detectSectionName = (
+    node: Node | null,
+    activeEl: Element | null,
+  ): string => {
     if (activeEl) {
       const container = activeEl.closest("[data-section]");
       if (container) {
         const secAttr = container.getAttribute("data-section");
         if (secAttr) return secAttr;
       }
-      const label = activeEl.closest(".space-y-1, .space-y-2")?.querySelector("label, h3, h4");
+      const label = activeEl
+        .closest(".space-y-1, .space-y-2")
+        ?.querySelector("label, h3, h4");
       if (label && label.textContent) {
         return label.textContent.trim();
       }
     }
 
     if (node) {
-      const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+      const element =
+        node.nodeType === Node.ELEMENT_NODE
+          ? (node as Element)
+          : node.parentElement;
       if (element) {
         const section = element.closest("section");
         if (section) {
@@ -57,7 +84,10 @@ export function TextAiSelectionMenu({ resumeData, onUpdateResume }: TextAiSelect
   const handleSelection = useCallback(() => {
     if (isOpen) return;
 
-    const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement | null;
+    const activeEl = document.activeElement as
+      | HTMLTextAreaElement
+      | HTMLInputElement
+      | null;
     if (
       activeEl &&
       (activeEl.tagName === "TEXTAREA" || activeEl.tagName === "INPUT") &&
@@ -192,71 +222,33 @@ export function TextAiSelectionMenu({ resumeData, onUpdateResume }: TextAiSelect
   };
 
   // Replace occurrences of selected text in resume state
-  const handleApplyReplacement = (textToApply: string, optionType: "primary" | "alternative") => {
+  const handleApplyReplacement = (
+    textToApply: string,
+    optionType: "primary" | "alternative",
+  ) => {
     if (!selectedText || !textToApply) return;
 
     const original = selectedText.trim();
     const replacement = textToApply.trim();
-
-    const newData: ResumeData = JSON.parse(JSON.stringify(resumeData));
-    let replacedCount = 0;
-
-    // Check Summary
-    if (newData.summary && newData.summary.includes(original)) {
-      newData.summary = newData.summary.replace(original, replacement);
-      replacedCount++;
+    if (replacement === original) {
+      setError(
+        "The suggested text is unchanged. Choose another option or edit the suggestion.",
+      );
+      return;
     }
 
-    // Check Experience Bullets
-    if (newData.experience) {
-      newData.experience = newData.experience.map((exp) => {
-        const newBullets = exp.bullets?.map((b) => {
-          if (b.includes(original)) {
-            replacedCount++;
-            return b.replace(original, replacement);
-          }
-          return b;
-        });
-        return { ...exp, bullets: newBullets };
-      });
+    const result = replaceUniqueResumeText(resumeData, original, replacement);
+    if (!result.resumeData) {
+      setError(
+        result.matchCount === 0
+          ? "The selected text is no longer in your resume. Nothing was changed."
+          : "That text appears more than once. Select a more specific phrase before applying it.",
+      );
+      return;
     }
 
-    // Check Projects Bullets
-    if (newData.projects) {
-      newData.projects = newData.projects.map((proj) => {
-        const newBullets = proj.bullets?.map((b) => {
-          if (b.includes(original)) {
-            replacedCount++;
-            return b.replace(original, replacement);
-          }
-          return b;
-        });
-        return { ...proj, bullets: newBullets };
-      });
-    }
-
-    // Check Achievements
-    if (newData.achievements) {
-      newData.achievements = newData.achievements.map((ach) => {
-        if (ach.description && ach.description.includes(original)) {
-          replacedCount++;
-          return { ...ach, description: ach.description.replace(original, replacement) };
-        }
-        return ach;
-      });
-    }
-
-    // Fallback: If exact substring in bullets wasn't matched, check exact bullet trim match
-    if (replacedCount === 0) {
-      if (newData.experience) {
-        newData.experience = newData.experience.map((exp) => {
-          const newBullets = exp.bullets?.map((b) => (b.trim() === original ? replacement : b));
-          return { ...exp, bullets: newBullets };
-        });
-      }
-    }
-
-    onUpdateResume(newData);
+    setError("");
+    onUpdateResume(result.resumeData);
     setAppliedOption(optionType);
     setTimeout(() => {
       handleCloseModal();
@@ -269,7 +261,10 @@ export function TextAiSelectionMenu({ resumeData, onUpdateResume }: TextAiSelect
       {menuPosition && !isOpen && (
         <div
           ref={menuRef}
-          style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+          style={{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+          }}
           className="fixed z-[99999] transition-all duration-150 animate-in fade-in zoom-in-95 pointer-events-auto"
         >
           <button
@@ -293,180 +288,200 @@ export function TextAiSelectionMenu({ resumeData, onUpdateResume }: TextAiSelect
         >
           <div className="min-h-full flex items-start justify-center py-6 sm:py-12">
             <div className="bg-white border border-neutral-300 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden font-sans text-neutral-900 animate-in fade-in zoom-in-95">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-neutral-50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-neutral-950 flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-neutral-950">AI Resume Assistant</h3>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-700 font-medium">
-                      {sectionContext}
-                    </span>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-neutral-50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-950 flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-white" />
                   </div>
-                  <p className="text-[11px] text-neutral-500">Ask AI to customize or rewrite selected words</p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-neutral-950">
+                        AI Resume Assistant
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-700 font-medium">
+                        {sectionContext}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500">
+                      Ask AI to customize or rewrite selected words
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={handleCloseModal}
-                className="text-neutral-400 hover:text-neutral-950 p-1 rounded-md hover:bg-neutral-200/50 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              {/* Selected Words Box */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-semibold">
-                  Selected Words ({sectionContext})
-                </label>
-                <div className="p-3 bg-neutral-50 rounded-xl text-xs font-serif text-neutral-800 border border-neutral-200 italic">
-                  &ldquo;{selectedText}&rdquo;
-                </div>
-              </div>
-
-              {/* Chat Input Field */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-semibold flex items-center gap-1">
-                  <MessageSquare className="w-3 h-3 text-neutral-500" />
-                  <span>Chat / Prompt AI about these words</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSendChat();
-                      }
-                    }}
-                    placeholder="e.g. 'Make it shorter', 'Add metrics', 'Focus on Full-Stack & Generative AI'..."
-                    className="flex-1 text-xs px-3.5 py-2.5 border border-neutral-300 rounded-xl bg-white focus:outline-none focus:border-neutral-950 shadow-xs"
-                  />
-                  <button
-                    onClick={() => handleSendChat()}
-                    disabled={isLoading}
-                    className="px-4 py-2.5 bg-neutral-950 text-white rounded-xl text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                  >
-                    {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                    <span>Ask AI</span>
-                  </button>
-                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-neutral-400 hover:text-neutral-950 p-1 rounded-md hover:bg-neutral-200/50 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* AI Generated Options */}
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-                    <span>AI Generated Options</span>
-                    {isLoading && <RefreshCw className="w-3 h-3 animate-spin text-neutral-950" />}
+              {/* Modal Body */}
+              <div className="p-6 space-y-4">
+                {/* Selected Words Box */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-semibold">
+                    Selected Words ({sectionContext})
                   </label>
+                  <div className="p-3 bg-neutral-50 rounded-xl text-xs font-serif text-neutral-800 border border-neutral-200 italic">
+                    &ldquo;{selectedText}&rdquo;
+                  </div>
+                </div>
 
-                  {enhancedText && (
+                {/* Chat Input Field */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-semibold flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3 text-neutral-500" />
+                    <span>Chat / Prompt AI about these words</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleSendChat();
+                        }
+                      }}
+                      placeholder="e.g. 'Make it shorter', 'Add metrics', 'Focus on Full-Stack & Generative AI'..."
+                      className="flex-1 text-xs px-3.5 py-2.5 border border-neutral-300 rounded-xl bg-white focus:outline-none focus:border-neutral-950 shadow-xs"
+                    />
                     <button
-                      onClick={() => handleCopy(enhancedText)}
-                      className="text-xs text-neutral-500 hover:text-neutral-950 flex items-center gap-1 cursor-pointer"
+                      onClick={() => handleSendChat()}
+                      disabled={isLoading}
+                      className="px-4 py-2.5 bg-neutral-950 text-white rounded-xl text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
                     >
-                      {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{isCopied ? "Copied!" : "Copy"}</span>
+                      {isLoading ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )}
+                      <span>Ask AI</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* AI Generated Options */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                      <span>AI Generated Options</span>
+                      {isLoading && (
+                        <RefreshCw className="w-3 h-3 animate-spin text-neutral-950" />
+                      )}
+                    </label>
+
+                    {enhancedText && (
+                      <button
+                        onClick={() => handleCopy(enhancedText)}
+                        className="text-xs text-neutral-500 hover:text-neutral-950 flex items-center gap-1 cursor-pointer"
+                      >
+                        {isCopied ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isCopied ? "Copied!" : "Copy"}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {isLoading ? (
+                    <div className="p-6 bg-neutral-50 border border-neutral-200 rounded-xl flex flex-col items-center justify-center gap-2 text-xs font-mono text-neutral-600">
+                      <RefreshCw className="w-5 h-5 animate-spin text-neutral-950" />
+                      <span>AI is processing your selected words...</span>
+                    </div>
+                  ) : error ? (
+                    <div className="p-3.5 bg-neutral-100 border border-neutral-300 text-neutral-900 rounded-xl text-xs font-mono">
+                      {error}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Option 1 */}
+                      {enhancedText && (
+                        <div className="p-4 bg-neutral-50 border border-neutral-300 rounded-xl space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-950">
+                              ✨ Option 1 (Recommended)
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleApplyReplacement(enhancedText, "primary")
+                              }
+                              className="px-3 py-1.5 bg-neutral-950 text-white text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            >
+                              {appliedOption === "primary" ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Applied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Apply Option 1</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-xs font-serif leading-relaxed text-neutral-950 font-medium">
+                            {enhancedText}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Option 2 */}
+                      {alternativeText && (
+                        <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600">
+                              ⚡ Option 2 (Alternative)
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleApplyReplacement(
+                                  alternativeText,
+                                  "alternative",
+                                )
+                              }
+                              className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-950 text-xs font-semibold rounded-lg hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            >
+                              {appliedOption === "alternative" ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Applied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Apply Option 2</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-xs font-serif leading-relaxed text-neutral-800">
+                            {alternativeText}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-
-                {isLoading ? (
-                  <div className="p-6 bg-neutral-50 border border-neutral-200 rounded-xl flex flex-col items-center justify-center gap-2 text-xs font-mono text-neutral-600">
-                    <RefreshCw className="w-5 h-5 animate-spin text-neutral-950" />
-                    <span>AI is processing your selected words...</span>
-                  </div>
-                ) : error ? (
-                  <div className="p-3.5 bg-neutral-100 border border-neutral-300 text-neutral-900 rounded-xl text-xs font-mono">
-                    {error}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Option 1 */}
-                    {enhancedText && (
-                      <div className="p-4 bg-neutral-50 border border-neutral-300 rounded-xl space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-950">
-                            ✨ Option 1 (Recommended)
-                          </span>
-                          <button
-                            onClick={() => handleApplyReplacement(enhancedText, "primary")}
-                            className="px-3 py-1.5 bg-neutral-950 text-white text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                          >
-                            {appliedOption === "primary" ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>Applied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>Apply Option 1</span>
-                                <ArrowRight className="w-3.5 h-3.5" />
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-xs font-serif leading-relaxed text-neutral-950 font-medium">
-                          {enhancedText}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Option 2 */}
-                    {alternativeText && (
-                      <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600">
-                            ⚡ Option 2 (Alternative)
-                          </span>
-                          <button
-                            onClick={() => handleApplyReplacement(alternativeText, "alternative")}
-                            className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-950 text-xs font-semibold rounded-lg hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                          >
-                            {appliedOption === "alternative" ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Applied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>Apply Option 2</span>
-                                <ArrowRight className="w-3.5 h-3.5" />
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-xs font-serif leading-relaxed text-neutral-800">
-                          {alternativeText}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end px-6 py-3.5 border-t border-neutral-200 bg-neutral-50">
-              <button
-                onClick={handleCloseModal}
-                className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-950 hover:bg-neutral-200/50 rounded-lg transition-colors cursor-pointer"
-              >
-                Close
-              </button>
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end px-6 py-3.5 border-t border-neutral-200 bg-neutral-50">
+                <button
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-950 hover:bg-neutral-200/50 rounded-lg transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
     </>
   );
 }
-

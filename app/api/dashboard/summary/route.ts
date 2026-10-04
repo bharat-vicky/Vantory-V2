@@ -1,10 +1,11 @@
+import { readApplicationSnapshot } from "@/lib/jobs/snapshots";
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/authorization";
+import { requireCandidate } from "@/lib/auth/authorization";
 import { db } from "@/lib/db";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const user = await requireCandidate();
     if (!user) {
       return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
     }
@@ -25,6 +26,7 @@ export async function GET() {
           companyName: true,
           overallScore: true,
           confidenceLevel: true,
+          scoringEngineVersion: true,
           createdAt: true,
         },
       }),
@@ -36,7 +38,7 @@ export async function GET() {
       }),
       db.savedJob.count({ where: { userId: user.id } }),
       db.jobPosting.findMany({
-        where: { status: "ACTIVE", verificationStatus: "VERIFIED" },
+        where: { status: "ACTIVE", verificationStatus: "VERIFIED",OR:[{expiresAt:null},{expiresAt:{isSet:false}},{expiresAt:{gte:new Date()}}] },
         orderBy: { createdAt: "desc" },
         take: 3,
         select: {
@@ -54,14 +56,15 @@ export async function GET() {
 
     const formattedAtsScans = atsScans.map((s) => ({
       ...s,
-      jobMatchScore: s.overallScore,
+      jobMatchScore: s.scoringEngineVersion==="3.1.0"?s.overallScore:null,
+      confidenceLevel:s.scoringEngineVersion==="3.1.0"?s.confidenceLevel:"Historical / unvalidated",
       createdAt: s.createdAt.toISOString(),
     }));
 
     const formattedApplications = applications.map((a) => ({
       id: a.id,
-      jobTitle: a.job.title,
-      company: a.job.company,
+      jobTitle: readApplicationSnapshot(a).job.title,
+      company: readApplicationSnapshot(a).job.company,
       status: a.status,
       appliedAt: a.createdAt.toISOString(),
     }));
@@ -78,6 +81,7 @@ export async function GET() {
       atsScans: formattedAtsScans,
       applications: formattedApplications,
       savedJobsCount,
+      applicationsCount:await db.jobApplication.count({where:{userId:user.id}}),
       recentJobs: formattedJobs,
     });
   } catch (error: unknown) {

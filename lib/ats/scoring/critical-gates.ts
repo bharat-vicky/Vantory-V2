@@ -5,40 +5,41 @@
 
 import { UnifiedParsedResume } from "../parser/resume-parser";
 import { StructuredJobDescription, CriticalGap } from "../types";
+import { skillsInText } from "../taxonomy/text-skills";
 import { evaluateSkillMatch } from "../taxonomy/skills";
+import { calculateTotalExperienceYears, evaluateExperienceRelevance } from "../matching/experience-matcher";
 
 export function evaluateCriticalGates(
   resume: UnifiedParsedResume,
-  jd: StructuredJobDescription
+  jd: StructuredJobDescription,
 ): CriticalGap[] {
   const gaps: CriticalGap[] = [];
 
   // 1. Critical Experience Gap Gate
-  let totalYears = 0;
-  resume.experiences.forEach((exp) => {
-    const startYear = parseInt(exp.startDate.match(/\d{4}/)?.[0] || "2022", 10);
-    const endYear = exp.endDate.toLowerCase().includes("present")
-      ? new Date().getFullYear()
-      : parseInt(exp.endDate.match(/\d{4}/)?.[0] || `${startYear + 1}`, 10);
-    totalYears += Math.max(1, endYear - startYear);
-  });
-  if (resume.experiences.length > 0 && totalYears === 0) totalYears = resume.experiences.length * 1.5;
+  const totalYears = evaluateExperienceRelevance(resume,jd).relevantYearsCandidate;
+  const hasUndatedExperience =
+    resume.experiences.length > 0 && totalYears === 0;
 
   if (jd.minYearsExperience > 0 && totalYears < jd.minYearsExperience * 0.6) {
     gaps.push({
-      title: "Critical Experience Gap",
+      title: hasUndatedExperience
+        ? "Experience Dates Need Verification"
+        : "Critical Experience Gap",
       requirementName: `${jd.minYearsExperience}+ Years Experience`,
       requiredDetail: `Job requires at least ${jd.minYearsExperience}+ years of experience.`,
-      resumeDetail: `Resume shows approximately ${totalYears} years total experience.`,
-      impactDescription: "Significant reduction in candidate job match compatibility.",
-      severity: "CRITICAL",
+      resumeDetail: hasUndatedExperience
+        ? "Work experience is listed, but dates are missing so total duration cannot be verified."
+        : `Resume shows ${totalYears} years of dated experience.`,
+      impactDescription:
+        "Significant reduction in candidate job match compatibility.",
+      severity: hasUndatedExperience ? "HIGH" : "CRITICAL",
     });
   }
 
   // 2. Critical Mandatory Skills Gate
   const missingCriticalSkills: string[] = [];
-  jd.requiredSkills.slice(0, 3).forEach((reqSkill) => {
-    const match = evaluateSkillMatch(reqSkill, resume.skills);
+  jd.requiredSkills.forEach((reqSkill) => {
+    const match = evaluateSkillMatch(reqSkill, [...resume.skills, ...skillsInText(resume.rawText)]);
     if (match.matchType === "NOT_FOUND") {
       missingCriticalSkills.push(reqSkill);
     }

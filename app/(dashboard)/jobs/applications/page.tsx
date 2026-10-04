@@ -51,21 +51,33 @@ export default function ApplicationsTrackingPage() {
   });
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadApplications() {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const res = await fetch("/api/applications");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
-            setApplications(json.applications || []);
-            if (json.stats) setStats(json.stats);
-          }
+        if (!res.ok) {
+          setLoadError(
+            "Your applications could not be loaded. Sign in as a candidate and try again.",
+          );
+          return;
+        }
+        const json = await res.json();
+        if (json.success) {
+          setApplications(json.applications || []);
+          if (json.stats) setStats(json.stats);
+        } else {
+          setLoadError(
+            "Your applications could not be loaded. Please try again.",
+          );
         }
       } catch {
-        // Handle silently
+        setLoadError(
+          "Your applications could not be loaded. Please check your connection and retry.",
+        );
       } finally {
         setIsLoading(false);
       }
@@ -77,23 +89,59 @@ export default function ApplicationsTrackingPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "APPLIED":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">APPLIED</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">
+            APPLIED
+          </span>
+        );
       case "UNDER_REVIEW":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-800 border border-neutral-300">UNDER REVIEW</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-800 border border-neutral-300">
+            UNDER REVIEW
+          </span>
+        );
       case "SHORTLISTED":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">SHORTLISTED</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">
+            SHORTLISTED
+          </span>
+        );
       case "INTERVIEW":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">INTERVIEWING</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">
+            INTERVIEWING
+          </span>
+        );
       case "SELECTED":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">SELECTED</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">
+            SELECTED
+          </span>
+        );
       case "OFFERED":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">OFFERED</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-950 text-white">
+            OFFERED
+          </span>
+        );
       case "WITHDRAWN":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">WITHDRAWN</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">
+            WITHDRAWN
+          </span>
+        );
       case "REJECTED":
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">REJECTED</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">
+            REJECTED
+          </span>
+        );
       default:
-        return <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-800">{status}</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded font-mono text-[10px] font-bold bg-neutral-100 text-neutral-800">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -122,7 +170,9 @@ export default function ApplicationsTrackingPage() {
             <button
               onClick={() => setViewMode("list")}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all ${
-                viewMode === "list" ? "bg-neutral-950 text-white font-bold" : "text-neutral-600 hover:text-neutral-950"
+                viewMode === "list"
+                  ? "bg-neutral-950 text-white font-bold"
+                  : "text-neutral-600 hover:text-neutral-950"
               }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -131,7 +181,9 @@ export default function ApplicationsTrackingPage() {
             <button
               onClick={() => setViewMode("kanban")}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all ${
-                viewMode === "kanban" ? "bg-neutral-950 text-white font-bold" : "text-neutral-600 hover:text-neutral-950"
+                viewMode === "kanban"
+                  ? "bg-neutral-950 text-white font-bold"
+                  : "text-neutral-600 hover:text-neutral-950"
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -144,38 +196,66 @@ export default function ApplicationsTrackingPage() {
       {/* Statistics Header Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Applied</span>
-          <div className="font-bold text-neutral-950 font-mono text-lg">{stats.applied}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Applied
+          </span>
+          <div className="font-bold text-neutral-950 font-mono text-lg">
+            {stats.applied}
+          </div>
         </div>
 
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Under Review</span>
-          <div className="font-bold text-neutral-950 font-mono text-lg">{stats.underReview}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Under Review
+          </span>
+          <div className="font-bold text-neutral-950 font-mono text-lg">
+            {stats.underReview}
+          </div>
         </div>
 
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Shortlisted</span>
-          <div className="font-bold text-neutral-950 font-mono text-lg">{stats.shortlisted}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Shortlisted
+          </span>
+          <div className="font-bold text-neutral-950 font-mono text-lg">
+            {stats.shortlisted}
+          </div>
         </div>
 
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Interview</span>
-          <div className="font-bold text-neutral-950 font-mono text-lg">{stats.interview}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Interview
+          </span>
+          <div className="font-bold text-neutral-950 font-mono text-lg">
+            {stats.interview}
+          </div>
         </div>
 
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Offers</span>
-          <div className="font-bold text-neutral-950 font-mono text-lg">{stats.offered}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Offers
+          </span>
+          <div className="font-bold text-neutral-950 font-mono text-lg">
+            {stats.offered}
+          </div>
         </div>
 
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Withdrawn</span>
-          <div className="font-bold text-neutral-500 font-mono text-lg">{stats.withdrawn}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Withdrawn
+          </span>
+          <div className="font-bold text-neutral-500 font-mono text-lg">
+            {stats.withdrawn}
+          </div>
         </div>
 
         <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-1">
-          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">Rejected</span>
-          <div className="font-bold text-neutral-400 font-mono text-lg">{stats.rejected}</div>
+          <span className="text-[10px] font-mono text-neutral-500 uppercase block font-semibold">
+            Rejected
+          </span>
+          <div className="font-bold text-neutral-400 font-mono text-lg">
+            {stats.rejected}
+          </div>
         </div>
       </div>
 
@@ -183,8 +263,25 @@ export default function ApplicationsTrackingPage() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-6 h-28 animate-pulse shadow-sm"></div>
+            <div
+              key={i}
+              className="bg-white border border-neutral-200 rounded-2xl p-6 h-28 animate-pulse shadow-sm"
+            ></div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div
+          role="alert"
+          className="mx-auto max-w-lg space-y-4 border border-neutral-200 p-8 text-center"
+        >
+          <p className="text-sm text-neutral-700">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="text-sm font-semibold underline underline-offset-4"
+          >
+            Try again
+          </button>
         </div>
       ) : applications.length === 0 ? (
         <div className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-12 text-center space-y-4 max-w-lg mx-auto">
@@ -192,9 +289,12 @@ export default function ApplicationsTrackingPage() {
             <Briefcase className="w-7 h-7 text-neutral-500" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-neutral-950">You haven&apos;t applied to any jobs yet</h3>
+            <h3 className="text-base font-bold text-neutral-950">
+              You haven&apos;t applied to any jobs yet
+            </h3>
             <p className="text-xs text-neutral-500">
-              Discover verified corporate openings in the marketplace and apply with your Vantory Resume.
+              Discover verified corporate openings in the marketplace and apply
+              with your Vantory Resume.
             </p>
           </div>
           <Link
@@ -219,12 +319,16 @@ export default function ApplicationsTrackingPage() {
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="text-xs font-extrabold text-neutral-950">{app.company}</span>
+                    <span className="text-xs font-extrabold text-neutral-950">
+                      {app.company}
+                    </span>
                     {getStatusBadge(app.status)}
                   </div>
 
                   <h3 className="text-base font-bold text-neutral-950 hover:underline">
-                    <Link href={`/jobs/applications/${app.id}`}>{app.jobTitle}</Link>
+                    <Link href={`/jobs/applications/${app.id}`}>
+                      {app.jobTitle}
+                    </Link>
                   </h3>
 
                   <div className="flex flex-wrap gap-2 text-xs font-mono text-neutral-500">
@@ -232,8 +336,10 @@ export default function ApplicationsTrackingPage() {
                       <FileCheck className="w-3.5 h-3.5 text-neutral-400" />
                       <span>{app.resumeTitle}</span>
                     </span>
-                    <span>•</span>
-                    <span>Applied {new Date(app.appliedAt).toLocaleDateString()}</span>
+                    <span>â€¢</span>
+                    <span>
+                      Applied {new Date(app.appliedAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -253,36 +359,61 @@ export default function ApplicationsTrackingPage() {
       ) : (
         /* Kanban Board View */
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 overflow-x-auto pb-4">
-          {["APPLIED", "UNDER_REVIEW", "SHORTLISTED", "WITHDRAWN"].map((columnStatus) => {
-            const colApps = applications.filter((a) => a.status === columnStatus);
+          {["APPLIED", "UNDER_REVIEW", "SHORTLISTED", "INTERVIEW", "SELECTED", "OFFERED", "REJECTED", "WITHDRAWN"].map(
+            (columnStatus) => {
+              const colApps = applications.filter(
+                (a) => a.status === columnStatus,
+              );
 
-            return (
-              <div key={columnStatus} className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-4 space-y-3 min-w-[250px]">
-                <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
-                  <span className="text-xs font-mono font-bold text-neutral-950 uppercase">{columnStatus.replace("_", " ")}</span>
-                  <span className="text-[10px] font-mono text-neutral-500 font-bold">{colApps.length}</span>
-                </div>
+              return (
+                <div
+                  key={columnStatus}
+                  className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-4 space-y-3 min-w-[250px]"
+                >
+                  <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                    <span className="text-xs font-mono font-bold text-neutral-950 uppercase">
+                      {columnStatus.replace("_", " ")}
+                    </span>
+                    <span className="text-[10px] font-mono text-neutral-500 font-bold">
+                      {colApps.length}
+                    </span>
+                  </div>
 
-                <div className="space-y-3">
-                  {colApps.map((app) => (
-                    <div key={app.id} className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2 text-xs">
-                      <div className="font-bold text-neutral-950">{app.jobTitle}</div>
-                      <div className="text-[10px] text-neutral-500">{app.company}</div>
-                      <div className="pt-2 border-t border-neutral-200 flex justify-between text-[10px] font-mono text-neutral-500">
-                        <span>{new Date(app.appliedAt).toLocaleDateString()}</span>
-                        <Link href={`/jobs/applications/${app.id}`} className="text-neutral-950 font-bold hover:underline">
-                          View
-                        </Link>
+                  <div className="space-y-3">
+                    {colApps.map((app) => (
+                      <div
+                        key={app.id}
+                        className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2 text-xs"
+                      >
+                        <div className="font-bold text-neutral-950">
+                          {app.jobTitle}
+                        </div>
+                        <div className="text-[10px] text-neutral-500">
+                          {app.company}
+                        </div>
+                        <div className="pt-2 border-t border-neutral-200 flex justify-between text-[10px] font-mono text-neutral-500">
+                          <span>
+                            {new Date(app.appliedAt).toLocaleDateString()}
+                          </span>
+                          <Link
+                            href={`/jobs/applications/${app.id}`}
+                            className="text-neutral-950 font-bold hover:underline"
+                          >
+                            View
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {colApps.length === 0 && (
-                    <p className="text-[10px] text-neutral-400 text-center py-4 font-mono">No applications</p>
-                  )}
+                    ))}
+                    {colApps.length === 0 && (
+                      <p className="text-[10px] text-neutral-400 text-center py-4 font-mono">
+                        No applications
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            },
+          )}
         </div>
       )}
     </div>

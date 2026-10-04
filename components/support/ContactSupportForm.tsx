@@ -19,7 +19,7 @@ export function ContactSupportForm({ onSuccessClose }: ContactSupportFormProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successTicket, setSuccessTicket] = useState<string | null>(null);
-  const [isRealSmtp, setIsRealSmtp] = useState<boolean>(false);
+
 
   const finalSubject =
     subjectCategory === "Other / Custom Inquiry"
@@ -50,8 +50,8 @@ export function ContactSupportForm({ onSuccessClose }: ContactSupportFormProps) 
         throw new Error(data.error || "We couldn't send your message right now. Please try again.");
       }
 
-      setSuccessTicket(data.ticketId || "SUP-SUCCESS");
-      setIsRealSmtp(Boolean(data.isRealSmtp));
+      setSuccessTicket(data.ticketId);
+
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Submission failed.");
     } finally {
@@ -66,22 +66,12 @@ export function ContactSupportForm({ onSuccessClose }: ContactSupportFormProps) 
           <CheckCircle2 className="w-6 h-6 text-neutral-950" />
         </div>
         <div className="space-y-2">
-          <h4 className="text-base font-extrabold text-white">Message Logged & Dispatched</h4>
+          <h4 className="text-base font-extrabold text-white">Support ticket saved</h4>
           <p className="text-xs text-neutral-300 max-w-xs mx-auto leading-relaxed font-medium">
-            Ticket <span className="font-mono text-white font-bold">{successTicket}</span> created for inquiry to <strong className="text-white">anupamsingh8095@gmail.com</strong>.
+            Ticket <span className="font-mono text-white font-bold">{successTicket}</span> has been saved. Keep this reference for follow-up.
           </p>
 
-          {!isRealSmtp && (
-            <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-[11px] text-amber-300 font-mono text-left space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-amber-400">
-                <Info className="w-3.5 h-3.5 shrink-0" />
-                <span>Note on Live Gmail Delivery:</span>
-              </div>
-              <p className="text-neutral-300 font-sans leading-normal">
-                To deliver messages directly to your real Gmail inbox (<code className="text-amber-300">anupamsingh8095@gmail.com</code>), set <code className="text-amber-300">SMTP_USER</code> & <code className="text-amber-300">SMTP_PASS</code> in <code className="text-amber-300">.env</code>.
-              </p>
-            </div>
-          )}
+
         </div>
         <button
           type="button"

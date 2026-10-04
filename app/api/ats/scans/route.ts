@@ -20,6 +20,7 @@ export async function GET() {
         resumeQualityScore: true,
         confidenceScore: true,
         confidenceLevel: true,
+        scoringEngineVersion: true,
         createdAt: true,
       },
     });
@@ -30,10 +31,10 @@ export async function GET() {
         id: s.id,
         targetJobTitle: s.targetJobTitle,
         companyName: s.companyName || undefined,
-        jobMatchScore: s.overallScore,
-        resumeQualityScore: s.resumeQualityScore,
-        confidenceScore: s.confidenceScore,
-        confidenceLevel: s.confidenceLevel,
+        jobMatchScore: s.scoringEngineVersion==="3.1.0"?s.overallScore:null,
+        resumeQualityScore: s.scoringEngineVersion==="3.1.0"?s.resumeQualityScore:null,
+        confidenceScore: s.scoringEngineVersion==="3.1.0"?s.confidenceScore:null,
+        confidenceLevel: s.scoringEngineVersion==="3.1.0"?s.confidenceLevel:"Historical / unvalidated",
         createdAt: s.createdAt.toISOString(),
       })),
     });

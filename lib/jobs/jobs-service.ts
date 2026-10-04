@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
-import { ApplicationState } from "@prisma/client";
-import { ensureSeedJobsExist } from "./seed-jobs";
+import { ApplicationState } from "@/lib/application-state";
+import { discoveryPipeline, annualSalary } from "./discovery";
+import { ApiError, objectId } from "@/lib/api-error";
+import { readApplicationSnapshot } from "./snapshots";
+import { Prisma } from "@prisma/client";
 
 export interface JobFilterParams {
   query?: string;
@@ -17,110 +20,20 @@ export interface JobFilterParams {
   limit?: number;
 }
 
-export async function getFilteredJobs(params: JobFilterParams, userId?: string) {
-  await ensureSeedJobsExist();
-
-  const page = Math.max(1, params.page || 1);
-  const limit = Math.max(1, Math.min(50, params.limit || 10));
-  const skip = (page - 1) * limit;
-
-  const where: Record<string, unknown> = {
-    status: "ACTIVE",
-    verificationStatus: "VERIFIED",
-  };
-
-  // Search query (title, company, skills, location, description)
-  if (params.query && params.query.trim()) {
-    const q = params.query.trim();
-    where.OR = [
-      { title: { contains: q } },
-      { company: { contains: q } },
-      { skills: { contains: q } },
-      { location: { contains: q } },
-      { description: { contains: q } },
-    ];
-  }
-
-  // Job Type Filter
-  if (params.jobType && params.jobType !== "ALL") {
-    where.type = { equals: params.jobType };
-  }
-
-  // Work Mode Filter
-  if (params.workMode && params.workMode !== "ALL") {
-    where.workMode = { equals: params.workMode };
-  }
-
-  // Experience Filter
-  if (params.experience && params.experience !== "ALL") {
-    where.experience = { contains: params.experience };
-  }
-
-  // Location Filter
-  if (params.location && params.location !== "ALL") {
-    where.location = { contains: params.location };
-  }
-
-  // Company Filter
-  if (params.company && params.company !== "ALL") {
-    where.company = { contains: params.company };
-  }
-
-  // Skills Filter
-  if (params.skills && params.skills !== "ALL") {
-    where.skills = { contains: params.skills };
-  }
-
-  // Salary Range Filter
-  if (params.salaryRange && params.salaryRange !== "ALL") {
-    if (params.salaryRange === "0-25k") {
-      where.salaryMax = { lte: 25000 };
-    } else if (params.salaryRange === "25k-50k") {
-      where.salaryMin = { gte: 25000 };
-      where.salaryMax = { lte: 50000 };
-    } else if (params.salaryRange === "50k-100k") {
-      where.salaryMin = { gte: 50000 };
-      where.salaryMax = { lte: 100000 };
-    } else if (params.salaryRange === "100k+") {
-      where.salaryMin = { gte: 100000 };
-    }
-  }
-
-  // Date Posted Filter
-  if (params.datePosted && params.datePosted !== "ALL") {
-    const now = new Date();
-    const pastDate = new Date();
-    if (params.datePosted === "today") pastDate.setDate(now.getDate() - 1);
-    else if (params.datePosted === "3days") pastDate.setDate(now.getDate() - 3);
-    else if (params.datePosted === "7days") pastDate.setDate(now.getDate() - 7);
-    else if (params.datePosted === "30days") pastDate.setDate(now.getDate() - 30);
-    
-    where.postedAt = { gte: pastDate };
-  }
-
-  // Sorting
-  let orderBy: Record<string, string> = { postedAt: "desc" };
-  if (params.sortBy === "salary") {
-    orderBy = { salaryMax: "desc" };
-  } else if (params.sortBy === "experience") {
-    orderBy = { experienceMin: "asc" };
-  } else if (params.sortBy === "recent" || !params.sortBy) {
-    orderBy = { postedAt: "desc" };
-  }
-
-  const [jobs, totalCount, activeOpeningsCount] = await Promise.all([
-    db.jobPosting.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-    }),
-    db.jobPosting.count({ where }),
-    db.jobPosting.count({
-      where: { status: "ACTIVE", verificationStatus: "VERIFIED" },
-    }),
-  ]);
-
+export async function getFilteredJobs(
+  params: JobFilterParams,
+  userId?: string,
+) {
+  const profile=userId ? await db.profile.findUnique({where:{userId}}):null;
+  const terms=profile?.skills?.split(",").map(s=>s.trim()).filter(Boolean) || [];
+  const {pipeline,page,limit}=discoveryPipeline(params,terms);
+  const raw=await db.jobPosting.aggregateRaw({pipeline:pipeline as Prisma.InputJsonObject[]}) as unknown as {jobs:{_id:{$oid:string};relevance:number;annualMin:number|null;annualMax:number|null}[];count:{total:number}[]}[];
+  const result=raw[0] || {jobs:[],count:[]};
+  const ids=result.jobs.map(j=>j._id.$oid);
+  const records=await db.jobPosting.findMany({where:{id:{in:ids}}});
+  const jobs=ids.map(id=>records.find(j=>j.id===id)!).filter(Boolean);
+  const totalCount=result.count[0]?.total || 0;
+  const activeOpeningsCount=await db.jobPosting.count({where:{status:"ACTIVE",verificationStatus:"VERIFIED",OR:[{expiresAt:null},{expiresAt:{isSet:false}},{expiresAt:{gte:new Date()}}]}});
   // Fetch saved status & application status if userId is authenticated
   let savedJobIds = new Set<string>();
   let appliedJobIds = new Set<string>();
@@ -143,6 +56,9 @@ export async function getFilteredJobs(params: JobFilterParams, userId?: string) 
 
   const formattedJobs = jobs.map((job) => ({
     ...job,
+    annualSalaryMin:annualSalary(job.salaryMin,job.salaryPeriod),
+    annualSalaryMax:annualSalary(job.salaryMax,job.salaryPeriod),
+    rankingBasis:params.sortBy==="relevance" ? "Keyword overlap with search and profile skills":undefined,
     isSaved: savedJobIds.has(job.id),
     hasApplied: appliedJobIds.has(job.id),
   }));
@@ -158,6 +74,7 @@ export async function getFilteredJobs(params: JobFilterParams, userId?: string) 
 }
 
 export async function getJobById(id: string, userId?: string) {
+  if (!objectId(id)) throw new ApiError("Invalid job ID.");
   const [job, savedRecord, appRecord] = await Promise.all([
     db.jobPosting.findUnique({
       where: { id },
@@ -181,46 +98,17 @@ export async function getJobById(id: string, userId?: string) {
     isSaved: Boolean(savedRecord),
     hasApplied: Boolean(appRecord),
     existingApplicationId: appRecord?.id || null,
+    isAvailable:job.status==="ACTIVE" && job.verificationStatus==="VERIFIED" && (!job.expiresAt || job.expiresAt>=new Date()),
   };
 }
 
-export async function toggleSaveJob(userId: string, jobId: string) {
-  const existing = await db.savedJob.findUnique({
-    where: { userId_jobId: { userId, jobId } },
-  });
-
-  if (existing) {
-    await db.savedJob.delete({
-      where: { id: existing.id },
-    });
-
-    await db.activityLog.create({
-      data: {
-        userId,
-        type: "JOB_UNSAVED",
-        title: "Unsaved Job Posting",
-        detail: `Unsaved job ID ${jobId}`,
-      },
-    });
-
-    return { isSaved: false };
-  } else {
-    await db.savedJob.create({
-      data: { userId, jobId },
-    });
-
-    await db.activityLog.create({
-      data: {
-        userId,
-        type: "JOB_SAVED",
-        title: "Saved Job Posting",
-        detail: `Saved job ID ${jobId}`,
-      },
-    });
-
-    return { isSaved: true };
-  }
+export async function setSavedJob(userId:string,jobId:string,isSaved:boolean) {
+ if(!objectId(jobId))throw new ApiError("Invalid job ID.");
+ if(isSaved){const job=await db.jobPosting.findUnique({where:{id:jobId}});if(!job)throw new ApiError("Job not found.",404);await db.savedJob.upsert({where:{userId_jobId:{userId,jobId}},create:{userId,jobId},update:{}});}
+ else await db.savedJob.deleteMany({where:{userId,jobId}});
+ return {isSaved};
 }
+export async function toggleSaveJob(userId:string,jobId:string) {const existing=await db.savedJob.findUnique({where:{userId_jobId:{userId,jobId}}});return setSavedJob(userId,jobId,!existing);}
 
 export async function getSavedJobs(userId: string) {
   const savedRecords = await db.savedJob.findMany({
@@ -235,6 +123,7 @@ export async function getSavedJobs(userId: string) {
     savedId: s.id,
     savedAt: s.createdAt.toISOString(),
     ...s.job,
+    isAvailable:s.job.status==="ACTIVE" && s.job.verificationStatus==="VERIFIED" && (!s.job.expiresAt || s.job.expiresAt>=new Date()),
   }));
 }
 
@@ -242,21 +131,25 @@ export async function applyToJob(
   userId: string,
   jobId: string,
   resumeId: string,
-  coverNote?: string
+  coverNote?: string,
+  expectedResumeRevision?: string,
 ) {
+  if(!objectId(jobId) || !objectId(resumeId))throw new ApiError("Choose a valid job and resume.");
   // 1. Verify Job Availability & Status
   const job = await db.jobPosting.findUnique({ where: { id: jobId } });
   if (!job) {
-    throw new Error("Job posting not found.");
+    throw new ApiError("Job posting not found.",404);
   }
   if (job.status !== "ACTIVE") {
-    throw new Error(`Cannot apply. Job posting is ${job.status.toLowerCase()}.`);
+    throw new ApiError(
+      `Cannot apply. Job posting is ${job.status.toLowerCase()}.`,
+    );
   }
   if (job.verificationStatus !== "VERIFIED") {
-    throw new Error("Cannot apply. Job posting is pending verification.");
+    throw new ApiError("Cannot apply. Job posting is pending verification.");
   }
   if (job.expiresAt && job.expiresAt < new Date()) {
-    throw new Error("Cannot apply. Job posting has expired.");
+    throw new ApiError("Cannot apply. Job posting has expired.");
   }
 
   // 2. Prevent Duplicate Application
@@ -264,7 +157,7 @@ export async function applyToJob(
     where: { userId_jobId: { userId, jobId } },
   });
   if (existingApp) {
-    throw new Error("Already Applied. You have already submitted an application for this role.");
+    return existingApp;
   }
 
   // 3. Verify Resume Ownership
@@ -272,8 +165,12 @@ export async function applyToJob(
     where: { id: resumeId, userId },
   });
   if (!resume) {
-    throw new Error("Selected resume not found or does not belong to candidate.");
+    throw new ApiError(
+      "Selected resume not found or does not belong to candidate.",
+    );
   }
+
+  if(expectedResumeRevision && resume.updatedAt.toISOString()!==expectedResumeRevision)throw new ApiError("The selected resume changed. Reload it and review before submitting.",409);
 
   // 4. Build Initial Application Timeline
   const initialTimeline = [
@@ -285,33 +182,25 @@ export async function applyToJob(
     },
   ];
 
-  // 5. Persist JobApplication
-  const application = await db.jobApplication.create({
-    data: {
-      userId,
-      jobId,
-      resumeId,
-      coverNote: coverNote ? coverNote.trim().slice(0, 2000) : null,
-      status: ApplicationState.APPLIED,
-      timelineJson: JSON.stringify(initialTimeline),
-    },
-    include: {
-      job: true,
-      resume: true,
-    },
-  });
-
-  // 6. Log Activity
-  await db.activityLog.create({
-    data: {
-      userId,
-      type: "APPLICATION_SUBMITTED",
-      title: `Applied to ${job.title} at ${job.company}`,
-      detail: `Submitted application using resume ${resume.title}`,
-    },
+  // Capture the submission atomically with its audit entry. Later edits do not change it.
+  try {
+  const application=await db.$transaction(async tx=>{
+    const currentJob=await tx.jobPosting.findFirst({where:{id:jobId,status:"ACTIVE",verificationStatus:"VERIFIED",updatedAt:job.updatedAt}});
+    const currentResume=await tx.resume.findFirst({where:{id:resumeId,userId,updatedAt:resume.updatedAt}});
+    if(!currentJob || !currentResume)throw new ApiError("Job or resume changed. Review it and retry.",409);
+    const created=await tx.jobApplication.create({data:{userId,jobId,resumeId,coverNote:coverNote?.trim().slice(0,2000) || null,status:ApplicationState.APPLIED,timelineJson:JSON.stringify(initialTimeline),resumeSnapshotJson:JSON.stringify({id:resume.id,title:resume.title,templateId:resume.templateId,contentJson:resume.contentJson,updatedAt:resume.updatedAt.toISOString()}),jobSnapshotJson:JSON.stringify(job),resumeRevision:resume.updatedAt},include:{job:true,resume:true}});
+    await tx.activityLog.create({data:{userId,type:"APPLICATION_SUBMITTED",title:`Applied to ${job.title} at ${job.company}`,detail:`Submitted application using resume ${resume.title}`}});
+    return created;
   });
 
   return application;
+  } catch(error) {
+    if(error instanceof Prisma.PrismaClientKnownRequestError && error.code==="P2002") {
+      const submitted=await db.jobApplication.findUnique({where:{userId_jobId:{userId,jobId}}});
+      if(submitted)return submitted;
+    }
+    throw error;
+  }
 }
 
 export async function getCandidateApplications(userId: string) {
@@ -327,13 +216,25 @@ export async function getCandidateApplications(userId: string) {
   // Calculate status counts
   const stats = {
     total: applications.length,
-    applied: applications.filter((a) => a.status === ApplicationState.APPLIED).length,
-    underReview: applications.filter((a) => a.status === ApplicationState.UNDER_REVIEW).length,
-    shortlisted: applications.filter((a) => a.status === ApplicationState.SHORTLISTED).length,
-    interview: applications.filter((a) => a.status === ApplicationState.INTERVIEW).length,
-    offered: applications.filter((a) => a.status === ApplicationState.OFFERED).length,
-    rejected: applications.filter((a) => a.status === ApplicationState.REJECTED).length,
-    withdrawn: applications.filter((a) => a.status === ApplicationState.WITHDRAWN).length,
+    applied: applications.filter((a) => a.status === ApplicationState.APPLIED)
+      .length,
+    underReview: applications.filter(
+      (a) => a.status === ApplicationState.UNDER_REVIEW,
+    ).length,
+    shortlisted: applications.filter(
+      (a) => a.status === ApplicationState.SHORTLISTED,
+    ).length,
+    interview: applications.filter(
+      (a) => a.status === ApplicationState.INTERVIEW,
+    ).length,
+    selected:applications.filter(a=>a.status===ApplicationState.SELECTED).length,
+    offered: applications.filter((a) => a.status === ApplicationState.OFFERED)
+      .length,
+    rejected: applications.filter((a) => a.status === ApplicationState.REJECTED)
+      .length,
+    withdrawn: applications.filter(
+      (a) => a.status === ApplicationState.WITHDRAWN,
+    ).length,
   };
 
   return {
@@ -341,21 +242,26 @@ export async function getCandidateApplications(userId: string) {
     applications: applications.map((app) => ({
       id: app.id,
       jobId: app.jobId,
-      jobTitle: app.job.title,
-      company: app.job.company,
-      companyLogo: app.job.companyLogo,
-      location: app.job.location,
-      salary: app.job.salary,
-      workMode: app.job.workMode,
+      jobTitle: readApplicationSnapshot(app).job.title,
+      company: readApplicationSnapshot(app).job.company,
+      companyLogo: readApplicationSnapshot(app).job.companyLogo,
+      location: readApplicationSnapshot(app).job.location,
+      salary: readApplicationSnapshot(app).job.salary,
+      workMode: readApplicationSnapshot(app).job.workMode,
       status: app.status,
-      resumeTitle: app.resume?.title || "Default Resume",
+      resumeTitle: readApplicationSnapshot(app).resume?.title || "Historical submission unavailable",
+      snapshotAvailable:Boolean(app.resumeSnapshotJson),
       appliedAt: app.createdAt.toISOString(),
       coverNote: app.coverNote,
     })),
   };
 }
 
-export async function getApplicationDetails(userId: string, applicationId: string) {
+export async function getApplicationDetails(
+  userId: string,
+  applicationId: string,
+) {
+  if(!objectId(applicationId))throw new ApiError("Invalid application ID.");
   const app = await db.jobApplication.findFirst({
     where: { id: applicationId, userId },
     include: {
@@ -384,25 +290,29 @@ export async function getApplicationDetails(userId: string, applicationId: strin
     status: app.status,
     appliedAt: app.createdAt.toISOString(),
     coverNote: app.coverNote,
-    job: app.job,
-    resume: app.resume,
+    job: readApplicationSnapshot(app).job,
+    resume: readApplicationSnapshot(app).resume,
+    snapshotAvailable:Boolean(app.resumeSnapshotJson),
     timeline,
   };
 }
 
-export async function withdrawApplication(userId: string, applicationId: string) {
+export async function withdrawApplication(
+  userId: string,
+  applicationId: string,
+) {
+  if(!objectId(applicationId))throw new ApiError("Invalid application ID.");
   const existing = await db.jobApplication.findFirst({
     where: { id: applicationId, userId },
     include: { job: true },
   });
 
   if (!existing) {
-    throw new Error("Application not found or unauthorized.");
+    throw new ApiError("Application not found.",404);
   }
 
-  if (existing.status === ApplicationState.WITHDRAWN) {
-    throw new Error("Application is already withdrawn.");
-  }
+  if (existing.status === ApplicationState.WITHDRAWN) return existing;
+  if(["REJECTED","OFFERED"].includes(existing.status))throw new ApiError("This application is already final.",409);
 
   let timeline = [];
   try {
@@ -418,22 +328,13 @@ export async function withdrawApplication(userId: string, applicationId: string)
     note: "Application withdrawn by candidate.",
   });
 
-  const updated = await db.jobApplication.update({
-    where: { id: applicationId },
-    data: {
-      status: ApplicationState.WITHDRAWN,
-      timelineJson: JSON.stringify(timeline),
-    },
+  return db.$transaction(async tx=>{
+    const changed = await tx.jobApplication.updateMany({
+      where:{id:applicationId,userId,status:existing.status,updatedAt:existing.updatedAt},
+      data:{status:ApplicationState.WITHDRAWN,timelineJson:JSON.stringify(timeline)},
+    });
+    if(changed.count!==1)throw new ApiError("Application changed. Refresh and retry.",409);
+    await tx.activityLog.create({data:{userId,type:"APPLICATION_WITHDRAWN",title:`Withdrew application for ${existing.job.title}`,detail:`Application ID ${applicationId} set to WITHDRAWN`}});
+    return tx.jobApplication.findUniqueOrThrow({where:{id:applicationId}});
   });
-
-  await db.activityLog.create({
-    data: {
-      userId,
-      type: "APPLICATION_WITHDRAWN",
-      title: `Withdrew application for ${existing.job.title}`,
-      detail: `Application ID ${applicationId} set to WITHDRAWN`,
-    },
-  });
-
-  return updated;
 }

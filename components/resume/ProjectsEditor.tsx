@@ -15,15 +15,12 @@ export function ProjectsEditor({ items, onChange }: ProjectsEditorProps) {
   const addItem = () => {
     const newItem: ResumeProjectItem = {
       id: `proj-${Date.now()}`,
-      title: "Enterprise RAG Assistant",
-      description: "AI-powered document intelligence engine with vector search.",
-      techStack: ["Next.js", "Python", "LangChain", "Qdrant", "FastAPI"],
-      liveUrl: "https://rag-demo.com",
-      repoUrl: "https://github.com/example/rag-assistant",
-      bullets: [
-        "Architected real-time RAG pipeline querying multi-modal PDF documents.",
-        "Implemented semantic chunking reducing hallucination rates by 40%.",
-      ],
+      title: "",
+      description: "",
+      techStack: [],
+      liveUrl: "",
+      repoUrl: "",
+      bullets: [],
     };
     onChange([...items, newItem]);
   };
@@ -32,30 +29,41 @@ export function ProjectsEditor({ items, onChange }: ProjectsEditorProps) {
     onChange(items.filter((i) => i.id !== id));
   };
 
-  const updateItem = (id: string, field: keyof ResumeProjectItem, value: unknown) => {
+  const updateItem = (
+    id: string,
+    field: keyof ResumeProjectItem,
+    value: unknown,
+  ) => {
     onChange(
-      items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+      items.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item,
+      ),
     );
   };
 
   const updateTechStack = (id: string, text: string) => {
     const list = text.split(",").map((t) => t.trim());
     onChange(
-      items.map((item) => (item.id === id ? { ...item, techStack: list } : item))
+      items.map((item) =>
+        item.id === id ? { ...item, techStack: list } : item,
+      ),
     );
   };
 
   const updateBullets = (id: string, bulletsText: string) => {
     const list = bulletsText.split("\n").filter((b) => b.trim());
     onChange(
-      items.map((item) => (item.id === id ? { ...item, bullets: list } : item))
+      items.map((item) => (item.id === id ? { ...item, bullets: list } : item)),
     );
   };
 
   return (
     <div className="space-y-4">
       {items.map((item, idx) => (
-        <div key={item.id || idx} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3">
+        <div
+          key={item.id || idx}
+          className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3"
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 font-bold text-xs text-neutral-900">
               <FolderKanban className="w-3.5 h-3.5 text-neutral-600" />

@@ -22,7 +22,7 @@ export interface InterviewHistoryViewProps {
   stats: {
     totalInterviews: number;
     completedCount: number;
-    averageScore: number;
+    averageScore: number | null;
   };
   onSelectSession: (id: string) => void;
   onStartNew: () => void;
@@ -41,7 +41,7 @@ export function InterviewHistoryView({ sessions, stats, onSelectSession, onStart
             <div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-950">MOCK INTERVIEW HISTORY & PROGRESS</h1>
               <p className="text-xs sm:text-sm text-neutral-500 font-medium">
-                Track your interview readiness score, historical score progression, and past reports.
+                Resume unfinished sessions and review assessed answers and past reports.
               </p>
             </div>
           </div>
@@ -68,10 +68,10 @@ export function InterviewHistoryView({ sessions, stats, onSelectSession, onStart
           </div>
 
           <div className="p-4 bg-neutral-950 text-white rounded-2xl space-y-1 shadow-md">
-            <span className="text-[10px] font-mono text-neutral-400 uppercase block font-bold">AVERAGE READINESS SCORE</span>
+            <span className="text-[10px] font-mono text-neutral-400 uppercase block font-bold">AVERAGE PRACTICE SCORE</span>
             <div className="text-3xl font-black text-white font-mono tracking-tighter">
-              {stats.averageScore}
-              <span className="text-xs font-normal text-neutral-400">/100</span>
+              {stats.averageScore ?? "Not assessed"}
+              {stats.averageScore!=null && <span className="text-xs font-normal text-neutral-400">/100</span>}
             </div>
           </div>
         </div>
@@ -119,12 +119,12 @@ export function InterviewHistoryView({ sessions, stats, onSelectSession, onStart
                 <div className="flex items-center gap-3 shrink-0">
                   {s.overallScore != null ? (
                     <div className="text-right font-mono">
-                      <span className="text-[10px] text-neutral-500 block font-bold">Readiness Score</span>
+                      <span className="text-[10px] text-neutral-500 block font-bold">Practice score</span>
                       <span className="text-base font-black text-neutral-950">{s.overallScore}/100</span>
                     </div>
                   ) : (
                     <span className="text-xs font-mono font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-xl">
-                      In Progress
+                      {s.status==="COMPLETED" ? "Historical / unvalidated" : "Resume interview"}
                     </span>
                   )}
                   <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-950 transition-colors" />

@@ -1,5 +1,7 @@
 "use client";
 
+import { jobPreparationDescription } from "@/lib/jobs/context";
+
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import {
@@ -17,6 +19,7 @@ import {
   Code2,
   Globe,
 } from "lucide-react";
+import { JobWorkspace } from "@/components/jobs/JobWorkspace";
 import { ApplyJobModal } from "@/components/jobs/ApplyJobModal";
 import { ATSReportSnapshot } from "@/lib/ats/types";
 
@@ -51,6 +54,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
+  const [workspaceResumeId,setWorkspaceResumeId]=useState("");
   // ATS Match Integration States
   const [isAnalyzingAts, setIsAnalyzingAts] = useState<boolean>(false);
   const [atsReport, setAtsReport] = useState<ATSReportSnapshot | null>(null);
@@ -90,7 +94,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const handleToggleSave = async () => {
     if (!job) return;
     try {
-      const res = await fetch(`/api/jobs/${job.id}/save`, { method: "POST" });
+      const res = await fetch(`/api/jobs/${job.id}/save`, { method: job.isSaved ? "DELETE":"POST" });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -104,6 +108,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const handleRunAtsCheck = async () => {
     if (!job) return;
+    if(!workspaceResumeId){setAtsError("Select a resume in the job workspace first.");return;}
     setIsAnalyzingAts(true);
     setAtsError("");
 
@@ -112,8 +117,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          resumeId:workspaceResumeId || undefined,
           targetJobTitle: job.title,
-          jobDescription: `${job.title} at ${job.company}.\nRequirements: ${job.requirements}\n${job.description}`,
+          jobDescription: jobPreparationDescription(job),
         }),
       });
 
@@ -165,6 +171,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="min-h-screen bg-white text-neutral-950 font-sans p-6 md:p-10 space-y-8">
+      <JobWorkspace jobId={jobId} onResumeSelect={setWorkspaceResumeId}/>
       {/* Back Link */}
       <div>
         <Link
@@ -215,11 +222,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   <MapPin className="w-3.5 h-3.5 text-neutral-400" />
                   <span>{job.location}</span>
                 </span>
-                <span>•</span>
+                <span>â€¢</span>
                 <span>{job.workMode}</span>
-                <span>•</span>
+                <span>â€¢</span>
                 <span>{job.type}</span>
-                <span>•</span>
+                <span>â€¢</span>
                 <span className="text-neutral-950 font-bold">{job.salary || "Competitive"}</span>
               </div>
             </div>
@@ -468,6 +475,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       <ApplyJobModal
         isOpen={isApplyModalOpen}
         onClose={() => setIsApplyModalOpen(false)}
+        initialResumeId={workspaceResumeId}
         jobId={job.id}
         jobTitle={job.title}
         companyName={job.company}

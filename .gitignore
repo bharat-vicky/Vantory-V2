@@ -14,22 +14,33 @@ coverage/
 .nyc_output/
 
 # Environment Variables & Credentials
-.env
-.env*.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
+!.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+*.jks
+credentials*.json
+*service-account*.json
+.aws/
+.vercel/
 
 # Local SQLite Database & Storage
 prisma/*.db
 prisma/*.db-journal
+*.db
+*.db-*
 *.sqlite
-*.sqlite-journal
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.dump
+*.bak
 
 # Temporary & Scratch Files
 scratch/
+.tmp/
 tmp/
 temp/
 *.log
@@ -50,3 +61,14 @@ Thumbs.db
 !.vscode/tasks.json
 !.vscode/launch.json
 .idea/
+
+# Local agent configuration and internal planning/research documents
+.agents/
+.codex/
+AGENTS.md
+CLAUDE.md
+/ARCHITECTURE.md
+/PRD.md
+/IMPLEMENTATION.md
+/CANDIDATE_UPGRADES.md
+/VMOCK_RESEARCH.md

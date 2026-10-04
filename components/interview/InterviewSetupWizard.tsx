@@ -13,6 +13,7 @@ interface DbResumeOption {
 
 export interface InterviewSetupWizardProps {
   onStartInterview: (params: {
+    jobId?:string;
     resumeId?: string;
     uploadedResumeText?: string;
     uploadedFileName?: string;
@@ -41,6 +42,7 @@ Required Qualifications & Skills:
 - Demonstrated experience building and consuming REST APIs.`;
 
 export function InterviewSetupWizard({ onStartInterview, isSubmitting = false }: InterviewSetupWizardProps) {
+  const [jobId,setJobId]=useState<string>();
   const [resumes, setResumes] = useState<DbResumeOption[]>([]);
   const [resumeSource, setResumeSource] = useState<"SAVED" | "UPLOAD">("SAVED");
   const [selectedResumeId, setSelectedResumeId] = useState<string>("");
@@ -79,7 +81,10 @@ export function InterviewSetupWizard({ onStartInterview, isSubmitting = false }:
         // Handle silently
       }
     }
-    loadResumes();
+    loadResumes().then(async()=>{
+      const id=new URLSearchParams(window.location.search).get("jobId");if(!id)return;
+      try{const r=await fetch(`/api/candidate/job-workspaces/${id}`);const j=await r.json();if(!r.ok)throw new Error(j.error);setJobId(id);setTargetJobTitle(j.job.title);setCompanyName(j.job.company);setJobDescription(j.job.description);setSelectedResumeId(j.selectedResume?.id || "");}catch(e){setUploadError(e instanceof Error?e.message:"Could not load job context.");}
+    });
   }, []);
 
   const handleFileUpload = async (file: File) => {
@@ -122,6 +127,7 @@ export function InterviewSetupWizard({ onStartInterview, isSubmitting = false }:
     }
 
     onStartInterview({
+      jobId,
       resumeId: resumeSource === "SAVED" ? (selectedResumeId || undefined) : undefined,
       uploadedResumeText: resumeSource === "UPLOAD" ? uploadedResumeText : undefined,
       uploadedFileName: resumeSource === "UPLOAD" ? uploadedFileName : undefined,

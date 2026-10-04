@@ -34,10 +34,12 @@ export async function GET(
       };
     }
 
+    snapshot={...snapshot,scanId:scan.id,resumeId:scan.resumeId || undefined,assessmentStatus:scan.scoringEngineVersion === "3.1.0" ? "RULE_BASED":"HISTORICAL_UNVALIDATED"};
     return NextResponse.json({
       success: true,
       scan: {
         id: scan.id,
+        resumeId:scan.resumeId,
         targetJobTitle: scan.targetJobTitle,
         companyName: scan.companyName,
         jobDescription: scan.jobDescription,

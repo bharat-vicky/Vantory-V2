@@ -1,0 +1,5 @@
+import {requireCandidate} from "@/lib/auth/authorization";
+import {db} from "@/lib/db";
+import {ApiError,apiError,objectId} from "@/lib/api-error";
+import {calendarEvent} from "@/lib/candidate/calendar";
+export async function GET(request:Request,{params}:{params:Promise<{id:string}>}){try{const u=await requireCandidate();const {id}=await params;if(!objectId(id))throw new ApiError("Invalid opportunity.");const o=await db.candidateOpportunity.findFirst({where:{id,userId:u.id}});if(!o)throw new ApiError("Opportunity not found.",404);const deadline=new URL(request.url).searchParams.get("kind")==="deadline";const at=deadline?o.deadline:o.interviewAt;if(!at)throw new ApiError("Set a date before exporting a reminder.");return new Response(calendarEvent({id:id+(deadline?"-deadline":"-interview"),title:deadline?"Application deadline: "+o.title:"Interview: "+o.title,company:o.company,at}),{headers:{"Content-Type":"text/calendar; charset=utf-8","Content-Disposition":'attachment; filename="vantory-reminder.ics"',"Cache-Control":"private, no-store"}});}catch(e){return apiError(e);}}

@@ -1,5 +1,7 @@
+import { defaultCareer,parseJson } from "@/lib/candidate/profile";
 import { db } from "@/lib/db";
-import { Prisma, ApplicationState } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { ApplicationState } from "@/lib/application-state";
 import { hashPassword } from "@/lib/auth/password";
 import {
   calculateStudentReadiness,
@@ -68,7 +70,7 @@ export async function getOrCreateInstituteProfile(adminUserId: string) {
         name: defaultName,
         contactPhone: null,
         domain: user.email.split("@")[1] || "campus.edu",
-        verificationStatus: "VERIFIED",
+        verificationStatus: "PENDING",
         location: "Main Campus",
       },
     });
@@ -110,7 +112,7 @@ export async function getInstituteProfile(adminUserId: string) {
     domain: institute.domain,
     establishedYear: institute.establishedYear || 2010,
     isOnboarded: institute.isOnboarded,
-    verificationStatus: institute.verificationStatus || "VERIFIED",
+    verificationStatus: institute.verificationStatus || "PENDING",
     adminsCount,
     createdAt: institute.createdAt.toISOString(),
   };
@@ -121,7 +123,7 @@ export async function getInstituteProfile(adminUserId: string) {
  */
 export async function updateInstituteProfile(
   adminUserId: string,
-  input: UpdateInstituteProfileInput
+  input: UpdateInstituteProfileInput,
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
 
@@ -159,13 +161,14 @@ async function getRawStudentMetricsForInstitute(instituteId: string) {
   const students = await db.user.findMany({
     where: {
       instituteId,
+      profile:{careerJson:{contains:'"instituteAnalyticsConsent":true'}},
       role: { in: ["CANDIDATE", "INSTITUTE_STUDENT"] },
     },
     include: {
       profile: true,
       resumes: { select: { id: true } },
-      atsScans: { select: { overallScore: true } },
-      interviews: { select: { overallScore: true } },
+      atsScans: { where:{scoringEngineVersion:"3.1.0"}, select: { overallScore: true } },
+      interviews: { where:{assessmentVersion:"rubric.v2",status:"COMPLETED"}, select: { overallScore: true } },
       applications: { select: { status: true } },
     },
   });
@@ -177,7 +180,7 @@ async function getRawStudentMetricsForInstitute(instituteId: string) {
       atsScansCount > 0
         ? Math.round(
             s.atsScans.reduce((sum, scan) => sum + scan.overallScore, 0) /
-              atsScansCount
+              atsScansCount,
           )
         : 0;
 
@@ -186,21 +189,16 @@ async function getRawStudentMetricsForInstitute(instituteId: string) {
     const avgInterviewScore =
       validInterviews.length > 0
         ? Math.round(
-            validInterviews.reduce(
-              (sum, i) => sum + (i.overallScore || 0),
-              0
-            ) / validInterviews.length
+            validInterviews.reduce((sum, i) => sum + (i.overallScore || 0), 0) /
+              validInterviews.length,
           )
         : 0;
 
     const isPlaced =
-      s.profile?.placementStatus === "PLACED" ||
-      s.applications.some(
-        (app: { status: ApplicationState }) => app.status === ApplicationState.OFFERED
-      );
+      s.profile?.placementStatus === "PLACED";
 
     const rawMetrics: StudentRawMetrics = {
-      profileCompletionScore: s.profile?.completionScore || 20,
+      profileCompletionScore: s.profile?.completionScore || 0,
       resumesCount,
       atsScansCount,
       averageAtsScore: avgAtsScore,
@@ -222,110 +220,14 @@ async function getRawStudentMetricsForInstitute(instituteId: string) {
 /**
  * Get Institute Dashboard Key Metrics & Placement Readiness Funnel
  */
-export async function getInstituteDashboardStats(adminUserId: string) {
-  const { institute } = await getOrCreateInstituteProfile(adminUserId);
-
-  const studentWhere: Prisma.UserWhereInput = {
-    instituteId: institute.id,
-    role: { in: ["CANDIDATE", "INSTITUTE_STUDENT"] },
-  };
-
-  const [
-    totalStudents,
-    profileCompleteCount,
-    resumeReadyCount,
-    atsReadyCount,
-    interviewReadyCount,
-    placedCount,
-    totalApplications,
-    shortlistedCount,
-    interviewsCount,
-    offersCount,
-    recentApplications,
-  ] = await Promise.all([
-    db.user.count({ where: studentWhere }),
-    db.user.count({
-      where: { ...studentWhere, profile: { completionScore: { gte: 80 } } },
-    }),
-    db.user.count({
-      where: { ...studentWhere, resumes: { some: {} } },
-    }),
-    db.user.count({
-      where: { ...studentWhere, atsScans: { some: { overallScore: { gte: 75 } } } },
-    }),
-    db.user.count({
-      where: { ...studentWhere, interviews: { some: { overallScore: { gte: 70 } } } },
-    }),
-    db.user.count({
-      where: {
-        ...studentWhere,
-        OR: [
-          { profile: { placementStatus: "PLACED" } },
-          { applications: { some: { status: ApplicationState.OFFERED } } },
-        ],
-      },
-    }),
-    db.jobApplication.count({
-      where: { user: studentWhere },
-    }),
-    db.jobApplication.count({
-      where: { user: studentWhere, status: ApplicationState.SHORTLISTED },
-    }),
-    db.jobApplication.count({
-      where: { user: studentWhere, status: ApplicationState.INTERVIEW },
-    }),
-    db.jobApplication.count({
-      where: { user: studentWhere, status: ApplicationState.OFFERED },
-    }),
-    db.jobApplication.findMany({
-      where: { user: studentWhere },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        job: { select: { id: true, title: true, company: true } },
-      },
-    }),
-  ]);
-
-  const placementReadyCount = Math.min(
-    profileCompleteCount,
-    resumeReadyCount,
-    atsReadyCount
-  );
-
-  const funnel = {
-    totalStudents,
-    profileCompleteCount,
-    resumeReadyCount,
-    atsReadyCount,
-    interviewReadyCount,
-    placementReadyCount,
-    placedCount,
-  };
-
-  return {
-    instituteName: institute.name,
-    verificationStatus: institute.verificationStatus || "VERIFIED",
-    totalStudents,
-    activeStudents: totalStudents,
-    placementReadyCount,
-    totalApplications,
-    shortlistedCount,
-    interviewsCount,
-    offersCount,
-    placedCount,
-    funnel,
-    recentApplications: recentApplications.map((app) => ({
-      id: app.id,
-      studentName: app.user.name,
-      studentEmail: app.user.email,
-      companyName: app.job.company,
-      jobTitle: app.job.title,
-      status: app.status,
-      appliedAt: app.createdAt.toISOString(),
-    })),
-  };
+export async function getInstituteDashboardStats(adminUserId:string) {
+ const {institute}=await getOrCreateInstituteProfile(adminUserId);
+ const rows=await getRawStudentMetricsForInstitute(institute.id);
+ const funnel=aggregateInstitutionFunnel(rows.map(r=>({...r.rawMetrics,isPlaced:r.isPlaced})));
+ const memberWhere={instituteId:institute.id,role:{in:["CANDIDATE","INSTITUTE_STUDENT"]}};
+ const shareWhere={...memberWhere,profile:{careerJson:{contains:'"instituteAnalyticsConsent":true'}}};
+ const [totalStudents,applications]=await Promise.all([db.user.count({where:memberWhere}),db.jobApplication.findMany({where:{user:shareWhere},orderBy:{createdAt:"desc"},include:{user:{select:{id:true,name:true,email:true}},job:{select:{id:true,title:true,company:true}}}})]);
+ return {instituteName:institute.name,verificationStatus:institute.verificationStatus || "PENDING",totalStudents,activeStudents:totalStudents,consentingStudents:rows.length,profileCompleteCount:funnel.profileCompleteCount,resumeReadyCount:funnel.resumeReadyCount,atsReadyCount:funnel.atsReadyCount,interviewReadyCount:funnel.interviewReadyCount,placementReadyCount:funnel.placementReadyCount,placedCount:funnel.placedCount,totalApplications:applications.length,shortlistedCount:applications.filter(a=>a.status==="SHORTLISTED").length,interviewsCount:applications.filter(a=>a.status==="INTERVIEW").length,offersCount:applications.filter(a=>a.status==="OFFERED").length,funnel:{...funnel,totalStudents:rows.length},recentApplications:applications.slice(0,5).map(a=>({id:a.id,studentName:a.user.name,studentEmail:a.user.email,jobTitle:a.job.title,company:a.job.company,status:a.status,appliedAt:a.createdAt.toISOString()}))};
 }
 
 /**
@@ -333,7 +235,7 @@ export async function getInstituteDashboardStats(adminUserId: string) {
  */
 export async function getInstituteStudents(
   adminUserId: string,
-  filters: StudentFilterInput = {}
+  filters: StudentFilterInput = {},
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
 
@@ -368,10 +270,10 @@ export async function getInstituteStudents(
   if (filters.search && filters.search.trim()) {
     const q = filters.search.trim();
     where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { email: { contains: q, mode: "insensitive" } },
-      { profile: { studentId: { contains: q, mode: "insensitive" } } },
-      { profile: { department: { contains: q, mode: "insensitive" } } },
+      { name: { contains: q } },
+      { email: { contains: q } },
+      { profile: { studentId: { contains: q } } },
+      { profile: { department: { contains: q } } },
     ];
   }
 
@@ -385,8 +287,8 @@ export async function getInstituteStudents(
       include: {
         profile: true,
         resumes: { select: { id: true } },
-        atsScans: { select: { overallScore: true } },
-        interviews: { select: { overallScore: true } },
+        atsScans: { where:{scoringEngineVersion:"3.1.0"}, select: { overallScore: true } },
+        interviews: { where:{assessmentVersion:"rubric.v2",status:"COMPLETED"}, select: { overallScore: true } },
         applications: { select: { status: true } },
       },
     }),
@@ -399,7 +301,7 @@ export async function getInstituteStudents(
       atsScansCount > 0
         ? Math.round(
             s.atsScans.reduce((sum, scan) => sum + scan.overallScore, 0) /
-              atsScansCount
+              atsScansCount,
           )
         : 0;
 
@@ -407,15 +309,13 @@ export async function getInstituteStudents(
     const avgInterviewScore =
       validInterviews.length > 0
         ? Math.round(
-            validInterviews.reduce(
-              (sum, i) => sum + (i.overallScore || 0),
-              0
-            ) / validInterviews.length
+            validInterviews.reduce((sum, i) => sum + (i.overallScore || 0), 0) /
+              validInterviews.length,
           )
         : 0;
 
     const rawMetrics: StudentRawMetrics = {
-      profileCompletionScore: s.profile?.completionScore || 20,
+      profileCompletionScore: s.profile?.completionScore || 0,
       resumesCount,
       atsScansCount,
       averageAtsScore: avgAtsScore,
@@ -423,7 +323,8 @@ export async function getInstituteStudents(
       averageInterviewScore: avgInterviewScore,
     };
 
-    const readiness = calculateStudentReadiness(rawMetrics);
+    const shared=parseJson(s.profile?.careerJson,defaultCareer).instituteAnalyticsConsent;
+    const readiness = shared ? calculateStudentReadiness(rawMetrics):{isProfileReady:false,isResumeReady:false,isAtsReady:false,isInterviewReady:false,isPlacementReady:false,readinessCategory:"Not shared" as const};
 
     return {
       id: s.id,
@@ -434,9 +335,10 @@ export async function getInstituteStudents(
       course: s.profile?.course || "N/A",
       graduationYear: s.profile?.graduationYear || null,
       profileCompletion: s.profile?.completionScore || 0,
-      resumesCount,
-      averageAtsScore: avgAtsScore,
-      averageInterviewScore: avgInterviewScore,
+      resumesCount: shared ? resumesCount:null,
+      sharingStatus:shared ? "SHARED":"PRIVATE",
+      averageAtsScore: shared ? avgAtsScore:null,
+      averageInterviewScore: shared ? avgInterviewScore:null,
       placementStatus: s.profile?.placementStatus || "LOOKING",
       readiness,
     };
@@ -445,14 +347,16 @@ export async function getInstituteStudents(
   let finalStudents = mappedStudents;
   if (filters.readinessStatus && filters.readinessStatus !== "ALL") {
     if (filters.readinessStatus === "READY") {
-      finalStudents = mappedStudents.filter((s) => s.readiness.isPlacementReady);
+      finalStudents = mappedStudents.filter(
+        (s) => s.readiness.isPlacementReady,
+      );
     } else if (filters.readinessStatus === "NEEDS_IMPROVEMENT") {
       finalStudents = mappedStudents.filter(
-        (s) => s.readiness.readinessCategory === "Needs Improvement"
+        (s) => s.readiness.readinessCategory === "Needs Improvement",
       );
     } else if (filters.readinessStatus === "NOT_READY") {
       finalStudents = mappedStudents.filter(
-        (s) => s.readiness.readinessCategory === "Not Ready"
+        (s) => s.readiness.readinessCategory === "Not Ready",
       );
     }
   }
@@ -471,17 +375,19 @@ export async function getInstituteStudents(
  */
 export async function getInstituteStudentDetail(
   adminUserId: string,
-  studentId: string
+  studentId: string,
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
 
+  const permission=await db.user.findFirst({where:{id:studentId,instituteId:institute.id,role:{in:["CANDIDATE","INSTITUTE_STUDENT"]}},select:{profile:{select:{careerJson:true}}}});
+  if(!permission || !parseJson(permission.profile?.careerJson,defaultCareer).mentorConsent)throw new Error("Forbidden. The candidate has not consented to mentor access.");
   const student = await db.user.findUnique({
     where: { id: studentId },
     include: {
       profile: true,
       resumes: { orderBy: { updatedAt: "desc" } },
-      atsScans: { orderBy: { createdAt: "desc" } },
-      interviews: { orderBy: { createdAt: "desc" } },
+      atsScans: { where:{scoringEngineVersion:"3.1.0"},orderBy: { createdAt: "desc" } },
+      interviews: { where:{assessmentVersion:"rubric.v2"},orderBy: { createdAt: "desc" } },
       applications: {
         orderBy: { createdAt: "desc" },
         include: {
@@ -508,16 +414,18 @@ export async function getInstituteStudentDetail(
     atsScansCount > 0
       ? Math.round(
           student.atsScans.reduce((sum, s) => sum + s.overallScore, 0) /
-            atsScansCount
+            atsScansCount,
         )
       : 0;
 
-  const validInterviews = student.interviews.filter((i) => i.overallScore != null);
+  const validInterviews = student.interviews.filter(
+    (i) => i.overallScore != null,
+  );
   const avgInterviewScore =
     validInterviews.length > 0
       ? Math.round(
           validInterviews.reduce((sum, i) => sum + (i.overallScore || 0), 0) /
-            validInterviews.length
+            validInterviews.length,
         )
       : 0;
 
@@ -628,7 +536,8 @@ export async function getInstituteJobs(adminUserId: string) {
 
   const appCountByJob: Record<string, number> = {};
   for (const app of applications) {
-    appCountByJob[app.jobId] = (app.jobId in appCountByJob ? appCountByJob[app.jobId] : 0) + 1;
+    appCountByJob[app.jobId] =
+      (app.jobId in appCountByJob ? appCountByJob[app.jobId] : 0) + 1;
   }
 
   return jobs.map((job) => ({
@@ -649,7 +558,10 @@ export async function getInstituteJobs(adminUserId: string) {
 /**
  * Get Specific Job Posting Details with Institute Student Applicants
  */
-export async function getInstituteJobDetails(adminUserId: string, jobId: string) {
+export async function getInstituteJobDetails(
+  adminUserId: string,
+  jobId: string,
+) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
 
   const job = await db.jobPosting.findUnique({
@@ -664,7 +576,9 @@ export async function getInstituteJobDetails(adminUserId: string, jobId: string)
       id: true,
       name: true,
       email: true,
-      profile: { select: { department: true, course: true, graduationYear: true } },
+      profile: {
+        select: { department: true, course: true, graduationYear: true },
+      },
     },
   });
   const studentMap = new Map(instituteStudents.map((s) => [s.id, s]));
@@ -720,12 +634,12 @@ export async function getInstituteJobDetails(adminUserId: string, jobId: string)
  */
 export async function getInstituteApplications(
   adminUserId: string,
-  filters: { status?: string; search?: string } = {}
+  filters: { status?: string; search?: string } = {},
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
 
   const students = await db.user.findMany({
-    where: { instituteId: institute.id },
+    where: { instituteId: institute.id,role:{in:["CANDIDATE","INSTITUTE_STUDENT"]},profile:{careerJson:{contains:'"instituteAnalyticsConsent":true'}} },
     select: { id: true },
   });
   const studentUserIds = students.map((s) => s.id);
@@ -778,7 +692,7 @@ export async function getInstituteApplications(
         a.studentName.toLowerCase().includes(q) ||
         a.studentEmail.toLowerCase().includes(q) ||
         a.companyName.toLowerCase().includes(q) ||
-        a.jobTitle.toLowerCase().includes(q)
+        a.jobTitle.toLowerCase().includes(q),
     );
   }
 
@@ -789,49 +703,22 @@ export async function getInstituteApplications(
  * Update Application Pipeline Status with institute multi-tenant ownership check
  */
 export async function updateInstituteApplicationStatus(
-  adminUserId: string,
-  applicationId: string,
-  newStatus: ApplicationState
+  adminUserId: string, applicationId: string, newStatus: ApplicationState,
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
-
-  const application = await db.jobApplication.findUnique({
-    where: { id: applicationId },
-    include: {
-      user: { select: { instituteId: true, name: true } },
-      job: { select: { title: true } },
-    },
+  const application = await db.jobApplication.findFirst({
+    where: { id: applicationId, user: { instituteId: institute.id } },
   });
-
-  if (!application) {
-    throw new Error("Application not found.");
-  }
-
-  if (application.user.instituteId !== institute.id) {
-    throw new Error("Unauthorized. Candidate belongs to another institute.");
-  }
-
-  const updated = await db.jobApplication.update({
-    where: { id: applicationId },
-    data: { status: newStatus },
-  });
-
-  await db.activityLog.create({
-    data: {
-      userId: adminUserId,
-      type: "APPLICATION_STATUS_UPDATED",
-      title: `Updated Application: ${application.user.name}`,
-      detail: `Changed status of ${application.job.title} to ${newStatus}`,
-    },
-  });
-
-  return updated;
+  if (!application) throw new Error("Application not found or Unauthorized.");
+  if (application.status === newStatus) return application;
+  throw new Error("Forbidden. Hiring status is managed by the employer. Use student mentoring notes to track preparation.");
 }
 
 /**
  * 1-Click Demo Applications Data Seeder for Institute Portal
  */
 export async function seedInstituteDemoApplications(adminUserId: string) {
+  if(process.env.NODE_ENV=== "production" || process.env.ALLOW_DEMO_SEED!=="true")throw new Error("Forbidden. Demo seeding is disabled.");
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
   const defaultPasswordHash = await hashPassword("Student@Vantory2025");
 
@@ -845,9 +732,24 @@ export async function seedInstituteDemoApplications(adminUserId: string) {
 
   if (students.length === 0) {
     const demoStudentsData = [
-      { name: "Alex Morgan", email: "alex.morgan@campus.edu", dept: "Computer Science", course: "B.Tech" },
-      { name: "David Chen", email: "david.chen@campus.edu", dept: "Information Technology", course: "B.Tech" },
-      { name: "Priya Sharma", email: "priya.sharma@campus.edu", dept: "Electronics & Comm", course: "B.Tech" },
+      {
+        name: "Alex Morgan",
+        email: "alex.morgan@campus.edu",
+        dept: "Computer Science",
+        course: "B.Tech",
+      },
+      {
+        name: "David Chen",
+        email: "david.chen@campus.edu",
+        dept: "Information Technology",
+        course: "B.Tech",
+      },
+      {
+        name: "Priya Sharma",
+        email: "priya.sharma@campus.edu",
+        dept: "Electronics & Comm",
+        course: "B.Tech",
+      },
     ];
 
     for (const d of demoStudentsData) {
@@ -937,7 +839,7 @@ export async function getInstituteAnalytics(adminUserId: string) {
 
   const studentData = await getRawStudentMetricsForInstitute(institute.id);
   const funnel = aggregateInstitutionFunnel(
-    studentData.map((d) => ({ ...d.rawMetrics, isPlaced: d.isPlaced }))
+    studentData.map((d) => ({ ...d.rawMetrics, isPlaced: d.isPlaced })),
   );
 
   // Department Breakdowns
@@ -990,102 +892,39 @@ export async function getInstituteAnalytics(adminUserId: string) {
  */
 export async function importInstituteStudentsCsv(
   adminUserId: string,
-  csvRows: Array<{
-    name: string;
-    email: string;
-    studentId?: string;
-    department?: string;
-    course?: string;
-    graduationYear?: number;
-  }>
+  csvRows: Array<{ name: string; email: string; studentId?: string; department?: string; course?: string; graduationYear?: number }>,
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
-  const defaultPasswordHash = await hashPassword("Student@Vantory2025");
-
-  let importedCount = 0;
-  let skippedCount = 0;
-
-  for (const row of csvRows) {
-    if (!row.email || !row.name) {
-      skippedCount++;
-      continue;
+  if (csvRows.length > 1000) throw new Error("A roster can contain at most 1000 rows.");
+  let importedCount = 0, skippedCount = 0, invitedCount = 0;
+  const conflicts: Array<{ row: number; email: string; reason: string }> = [];
+  const seen = new Set<string>();
+  for (const [index, row] of csvRows.entries()) {
+    const email = typeof row.email === "string" ? row.email.trim().toLowerCase() : "";
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || seen.has(email)) {
+      skippedCount++; conflicts.push({ row: index + 1, email, reason: "Invalid or duplicate row." }); continue;
     }
-
-    const cleanEmail = row.email.trim().toLowerCase();
-
-    // Check if user already exists
-    const existing = await db.user.findUnique({
-      where: { email: cleanEmail },
-      include: { profile: true },
+    seen.add(email);
+    const existing = await db.user.findUnique({ where: { email }, include: { profile: true } });
+    if (existing && (!["CANDIDATE", "INSTITUTE_STUDENT"].includes(existing.role) || (existing.instituteId && existing.instituteId !== institute.id))) {
+      skippedCount++; conflicts.push({ row: index + 1, email, reason: "This account cannot be added to this institute." }); continue;
+    }
+    const roster = {
+      studentId: typeof row.studentId === "string" ? row.studentId.trim().slice(0, 100) : null,
+      department: typeof row.department === "string" ? row.department.trim().slice(0, 100) : null,
+      course: typeof row.course === "string" ? row.course.trim().slice(0, 100) : null,
+      graduationYear: Number.isInteger(row.graduationYear) && row.graduationYear! >= 1990 && row.graduationYear! <= 2100 ? row.graduationYear : null,
+    };
+    if (existing?.instituteId === institute.id) { importedCount++; continue; }
+    await db.instituteInvitation.upsert({
+      where: { instituteId_email: { instituteId: institute.id, email } },
+      create: { instituteId: institute.id, email, name, rosterJson: JSON.stringify(roster), expiresAt: new Date(Date.now() + 30 * 86400000) },
+      update: { name, rosterJson: JSON.stringify(roster), status: "PENDING", expiresAt: new Date(Date.now() + 30 * 86400000) },
     });
-
-    if (existing) {
-      // Update existing user & link to institute if unassigned or matching
-      await db.user.update({
-        where: { id: existing.id },
-        data: {
-          instituteId: institute.id,
-        },
-      });
-
-      if (existing.profile) {
-        await db.profile.update({
-          where: { userId: existing.id },
-          data: {
-            department: row.department || existing.profile.department,
-            course: row.course || existing.profile.course,
-            graduationYear: row.graduationYear || existing.profile.graduationYear,
-            studentId: row.studentId || existing.profile.studentId,
-          },
-        });
-      } else {
-        await db.profile.create({
-          data: {
-            userId: existing.id,
-            department: row.department || "Computer Science",
-            course: row.course || "B.Tech",
-            graduationYear: row.graduationYear || 2027,
-            studentId: row.studentId || null,
-            completionScore: 30,
-          },
-        });
-      }
-
-      importedCount++;
-    } else {
-      // Create new candidate associated with institute
-      const newUser = await db.user.create({
-        data: {
-          email: cleanEmail,
-          passwordHash: defaultPasswordHash,
-          name: row.name.trim(),
-          role: "CANDIDATE",
-          instituteId: institute.id,
-          profile: {
-            create: {
-              department: row.department || "Computer Science",
-              course: row.course || "B.Tech",
-              graduationYear: row.graduationYear || 2027,
-              studentId: row.studentId || null,
-              completionScore: 30,
-            },
-          },
-        },
-      });
-      if (newUser) importedCount++;
-    }
+    invitedCount++;
   }
-
-  await db.activityLog.create({
-    data: {
-      userId: adminUserId,
-      type: "STUDENT_ROSTER_IMPORTED",
-      title: "Imported Student Roster",
-      detail: `Imported ${importedCount} students (${skippedCount} skipped)`,
-    },
-  });
-
-  return { importedCount, skippedCount };
+  return { importedCount, skippedCount, invitedCount, conflicts };
 }
 
 /**
@@ -1093,7 +932,12 @@ export async function importInstituteStudentsCsv(
  */
 export async function generateInstituteReports(
   adminUserId: string,
-  reportType: "readiness" | "department" | "placement" | "applications" | "skills" = "readiness"
+  reportType:
+    | "readiness"
+    | "department"
+    | "placement"
+    | "applications"
+    | "skills" = "readiness",
 ) {
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
   const studentData = await getRawStudentMetricsForInstitute(institute.id);
@@ -1114,9 +958,13 @@ export async function generateInstituteReports(
       isPlacementReady: s.readiness.isPlacementReady ? "YES" : "NO",
     }));
 
-    const csvHeader = "Student ID,Full Name,Email,Department,Course,Graduation Year,Profile Score,Resumes Count,Avg ATS Score,Avg Interview Score,Readiness Category,Placement Ready\n";
+    const csvHeader =
+      "Student ID,Full Name,Email,Department,Course,Graduation Year,Profile Score,Resumes Count,Avg ATS Score,Avg Interview Score,Readiness Category,Placement Ready\n";
     const csvRows = rows
-      .map((r) => `"${r.studentId}","${r.fullName}","${r.email}","${r.department}","${r.course}","${r.graduationYear}","${r.profileScore}",${r.resumesCount},${r.averageAtsScore},${r.averageInterviewScore},"${r.readinessCategory}","${r.isPlacementReady}"`)
+      .map(
+        (r) =>
+          `"${r.studentId}","${r.fullName}","${r.email}","${r.department}","${r.course}","${r.graduationYear}","${r.profileScore}",${r.resumesCount},${r.averageAtsScore},${r.averageInterviewScore},"${r.readinessCategory}","${r.isPlacementReady}"`,
+      )
       .join("\n");
 
     return {
@@ -1134,14 +982,24 @@ export async function generateInstituteReports(
       department: d.department,
       totalStudents: d.totalStudents,
       placementReadyCount: d.placementReadyCount,
-      readinessRate: d.totalStudents > 0 ? `${Math.round((d.placementReadyCount / d.totalStudents) * 100)}%` : "0%",
+      readinessRate:
+        d.totalStudents > 0
+          ? `${Math.round((d.placementReadyCount / d.totalStudents) * 100)}%`
+          : "0%",
       placedCount: d.placedCount,
-      placementRate: d.totalStudents > 0 ? `${Math.round((d.placedCount / d.totalStudents) * 100)}%` : "0%",
+      placementRate:
+        d.totalStudents > 0
+          ? `${Math.round((d.placedCount / d.totalStudents) * 100)}%`
+          : "0%",
     }));
 
-    const csvHeader = "Department,Total Students,Placement Ready Count,Readiness Rate,Placed Count,Placement Rate\n";
+    const csvHeader =
+      "Department,Total Students,Placement Ready Count,Readiness Rate,Placed Count,Placement Rate\n";
     const csvRows = rows
-      .map((r) => `"${r.department}",${r.totalStudents},${r.placementReadyCount},"${r.readinessRate}",${r.placedCount},"${r.placementRate}"`)
+      .map(
+        (r) =>
+          `"${r.department}",${r.totalStudents},${r.placementReadyCount},"${r.readinessRate}",${r.placedCount},"${r.placementRate}"`,
+      )
       .join("\n");
 
     return {
@@ -1165,9 +1023,13 @@ export async function generateInstituteReports(
       interviewsCount: s.rawMetrics.interviewsCount,
     }));
 
-    const csvHeader = "Student ID,Full Name,Email,Department,Placement Status,Placed,Applications Submitted,Interviews Conducted\n";
+    const csvHeader =
+      "Student ID,Full Name,Email,Department,Placement Status,Placed,Applications Submitted,Interviews Conducted\n";
     const csvRows = rows
-      .map((r) => `"${r.studentId}","${r.fullName}","${r.email}","${r.department}","${r.placementStatus}","${r.isPlaced}",${r.applicationsCount},${r.interviewsCount}`)
+      .map(
+        (r) =>
+          `"${r.studentId}","${r.fullName}","${r.email}","${r.department}","${r.placementStatus}","${r.isPlaced}",${r.applicationsCount},${r.interviewsCount}`,
+      )
       .join("\n");
 
     return {
@@ -1192,9 +1054,13 @@ export async function generateInstituteReports(
       appliedAt: a.appliedAt || "N/A",
     }));
 
-    const csvHeader = "Application ID,Student Name,Student Email,Department,Job Title,Company,Status,Date Applied\n";
+    const csvHeader =
+      "Application ID,Student Name,Student Email,Department,Job Title,Company,Status,Date Applied\n";
     const csvRows = rows
-      .map((r) => `"${r.applicationId}","${r.studentName}","${r.studentEmail}","${r.department}","${r.jobTitle}","${r.companyName}","${r.status}","${r.appliedAt}"`)
+      .map(
+        (r) =>
+          `"${r.applicationId}","${r.studentName}","${r.studentEmail}","${r.department}","${r.jobTitle}","${r.companyName}","${r.status}","${r.appliedAt}"`,
+      )
       .join("\n");
 
     return {
@@ -1212,7 +1078,10 @@ export async function generateInstituteReports(
   const rows = analytics.topSkills.map((s) => ({
     skill: s.skill,
     count: s.count,
-    percentage: totalStudents > 0 ? `${Math.round((s.count / totalStudents) * 100)}%` : "0%",
+    percentage:
+      totalStudents > 0
+        ? `${Math.round((s.count / totalStudents) * 100)}%`
+        : "0%",
   }));
 
   const csvHeader = "Skill Name,Student Count,Roster Percentage\n";
@@ -1228,4 +1097,3 @@ export async function generateInstituteReports(
     csvContent: csvHeader + csvRows,
   };
 }
-

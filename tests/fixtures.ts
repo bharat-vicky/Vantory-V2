@@ -1,0 +1,1 @@
+export function stubMethod(target:object,key:string,value:unknown){const original=Object.getOwnPropertyDescriptor(target,key);Object.defineProperty(target,key,{configurable:true,writable:true,value});return ()=>{if(original)Object.defineProperty(target,key,original);else Reflect.deleteProperty(target,key);};}

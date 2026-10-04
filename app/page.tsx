@@ -40,34 +40,40 @@ const MAGIC_FEATURES: MagicFeature[] = [
     icon: FileText,
     title: "LaTeX ATS Resume Builder",
     subtitle: "Craft clean, ATS-proof resumes with live A4 preview.",
-    description: "Architected with LaTeX typography standards. Rearrange sections, enhance bullet points with AI, and export publication-grade PDFs.",
+    description:
+      "Architected with LaTeX typography standards. Rearrange sections, enhance bullet points with AI, and export publication-grade PDFs.",
   },
   {
     id: "interview",
     icon: Bot,
     title: "AI Mock Interview Engine",
     subtitle: "Practice technical & system design interview rounds.",
-    description: "Speech-to-text response evaluation, instant score breakdown, and actionable AI feedback to pass top engineering interviews.",
+    description:
+      "Speech-to-text response evaluation, instant score breakdown, and actionable AI feedback to pass top engineering interviews.",
   },
   {
     id: "ats",
     icon: BarChart3,
     title: "Deterministic ATS Checker",
     subtitle: "Scan your resume against target Job Descriptions.",
-    description: "Automated critical gate checks, keyword match percentages, missing skill extraction, and formatting recommendations.",
+    description:
+      "Automated critical gate checks, keyword match percentages, missing skill extraction, and formatting recommendations.",
   },
   {
     id: "employer",
     icon: Building2,
     title: "Verified Employer Portal",
     subtitle: "Manage corporate openings & review candidate resumes.",
-    description: "Direct job publishing with Rupee (₹) salary periods, candidate cover note review, and 5-stage status escalation.",
+    description:
+      "Direct job publishing with Rupee (₹) salary periods, candidate cover note review, and 5-stage status escalation.",
   },
 ];
 
 export default function Home() {
   // Hero Browser Showcase Tab State
-  const [heroDashboardTab, setHeroDashboardTab] = useState<"candidate" | "employer" | "institute">("candidate");
+  const [heroDashboardTab, setHeroDashboardTab] = useState<
+    "candidate" | "employer" | "institute"
+  >("candidate");
   const [isAutoHeroDashboard, setIsAutoHeroDashboard] = useState(true);
 
   // Auto-rotate Hero Showcase Mockup every 4 seconds
@@ -83,7 +89,9 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [isAutoHeroDashboard]);
 
-  const selectHeroDashboardTab = (tab: "candidate" | "employer" | "institute") => {
+  const selectHeroDashboardTab = (
+    tab: "candidate" | "employer" | "institute",
+  ) => {
     setIsAutoHeroDashboard(false);
     setHeroDashboardTab(tab);
   };
@@ -91,7 +99,9 @@ export default function Home() {
   const [heroIndex, setHeroIndex] = useState(0);
 
   // Magic Feature Section Active Index
-  const [activeMagicId, setActiveMagicId] = useState<"resume" | "interview" | "ats" | "employer">("resume");
+  const [activeMagicId, setActiveMagicId] = useState<
+    "resume" | "interview" | "ats" | "employer"
+  >("resume");
   const [isAutoRotatingMagic, setIsAutoRotatingMagic] = useState<boolean>(true);
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -145,7 +155,9 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [isAutoRotatingMagic]);
 
-  const handleMagicSelect = (id: "resume" | "interview" | "ats" | "employer") => {
+  const handleMagicSelect = (
+    id: "resume" | "interview" | "ats" | "employer",
+  ) => {
     setIsAutoRotatingMagic(false);
     setActiveMagicId(id);
   };
@@ -183,11 +195,33 @@ export default function Home() {
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 sm:gap-10 text-sm font-bold text-neutral-600">
-            <a href="#magic-section" className="hover:text-neutral-950 transition-colors">Features</a>
-            <a href="#portals" className="hover:text-neutral-950 transition-colors">Solutions</a>
-            <a href="#pricing" className="hover:text-neutral-950 transition-colors">Pricing</a>
-            <a href="#docs" className="hover:text-neutral-950 transition-colors">Documentation</a>
-            <a href="#faq" className="hover:text-neutral-950 transition-colors">Contact</a>
+            <a
+              href="#magic-section"
+              className="hover:text-neutral-950 transition-colors"
+            >
+              Features
+            </a>
+            <a
+              href="#portals"
+              className="hover:text-neutral-950 transition-colors"
+            >
+              Solutions
+            </a>
+            <a
+              href="#pricing"
+              className="hover:text-neutral-950 transition-colors"
+            >
+              Pricing
+            </a>
+            <a
+              href="#docs"
+              className="hover:text-neutral-950 transition-colors"
+            >
+              Documentation
+            </a>
+            <a href="#faq" className="hover:text-neutral-950 transition-colors">
+              Contact
+            </a>
           </nav>
 
           {/* Header Action Buttons */}
@@ -217,7 +251,10 @@ export default function Home() {
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neutral-100 border border-neutral-200/90 text-xs font-medium text-neutral-600 shadow-2xs"
         >
           <span className="w-2 h-2 rounded-full bg-neutral-950 inline-block" />
-          <span>Introducing Vantory Enterprise 2.0 — Career Advantage + Career Direction</span>
+          <span>
+            Introducing Vantory Enterprise 2.0 — Career Advantage + Career
+            Direction
+          </span>
         </motion.div>
       </div>
 
@@ -260,7 +297,9 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-base sm:text-lg text-neutral-500 max-w-xl mx-auto font-normal leading-relaxed text-center"
         >
-          The premium career acceleration platform for ATS resume building, realistic AI mock interviews, employer candidate matching, and real-time placement analytics.
+          The premium career acceleration platform for ATS resume building,
+          realistic AI mock interviews, employer candidate matching, and
+          real-time placement analytics.
         </motion.p>
 
         {/* Single Main CTA Action Button (Matching Identify Layout) */}
@@ -297,8 +336,10 @@ export default function Home() {
             {/* Address Bar */}
             <div className="bg-white border border-neutral-200/90 rounded-full px-8 py-1 text-xs font-mono text-neutral-500 shadow-2xs font-medium text-center">
               {heroDashboardTab === "candidate" && "vantory.com/dashboard"}
-              {heroDashboardTab === "employer" && "vantory.com/company/dashboard"}
-              {heroDashboardTab === "institute" && "vantory.com/institute/dashboard"}
+              {heroDashboardTab === "employer" &&
+                "vantory.com/company/dashboard"}
+              {heroDashboardTab === "institute" &&
+                "vantory.com/institute/dashboard"}
             </div>
 
             <div className="w-12" />
@@ -378,8 +419,12 @@ export default function Home() {
                     {/* Top Workspace Header */}
                     <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                       <div>
-                        <h3 className="text-2xl font-black text-neutral-950 tracking-tight">Candidate Workspace 2.0</h3>
-                        <p className="text-xs text-neutral-400 font-normal mt-0.5">● Live • Anupam Singh (Software Engineer)</p>
+                        <h3 className="text-2xl font-black text-neutral-950 tracking-tight">
+                          Candidate Workspace 2.0
+                        </h3>
+                        <p className="text-xs text-neutral-400 font-normal mt-0.5">
+                          ● Live • Anupam Singh (Software Engineer)
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -398,8 +443,13 @@ export default function Home() {
                     {/* Main Inner Directory Card Container (Matching Reference Layout) */}
                     <div className="bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-2xs space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-extrabold text-neutral-900">Assessment & Application Roster</h4>
-                        <Link href="/resume" className="px-4 py-2 bg-neutral-950 text-white font-extrabold text-xs rounded-full shadow-xs hover:bg-neutral-800 transition-colors">
+                        <h4 className="text-sm font-extrabold text-neutral-900">
+                          Assessment & Application Roster
+                        </h4>
+                        <Link
+                          href="/resume"
+                          className="px-4 py-2 bg-neutral-950 text-white font-extrabold text-xs rounded-full shadow-xs hover:bg-neutral-800 transition-colors"
+                        >
                           + New Candidate
                         </Link>
                       </div>
@@ -412,8 +462,12 @@ export default function Home() {
                               SJ
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">Sarah Jenkins</div>
-                              <div className="text-xs text-neutral-400 font-normal">sarah@example.com • LaTeX ATS 94%</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                Sarah Jenkins
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                sarah@example.com • LaTeX ATS 94%
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-950 text-white text-[10px] font-extrabold rounded-full">
@@ -427,8 +481,12 @@ export default function Home() {
                               DC
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">David Chen</div>
-                              <div className="text-xs text-neutral-400 font-normal">david.c@startup.io • Mock Interview 88/100</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                David Chen
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                david.c@startup.io • Mock Interview 88/100
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-200/70 text-neutral-700 text-[10px] font-bold rounded-full">
@@ -442,8 +500,12 @@ export default function Home() {
                               EW
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">Emily Watson</div>
-                              <div className="text-xs text-neutral-400 font-normal">emilyw@enterprise.com • 300 DPI PDF Ready</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                Emily Watson
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                emilyw@enterprise.com • 300 DPI PDF Ready
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-200/70 text-neutral-700 text-[10px] font-bold rounded-full">
@@ -467,8 +529,12 @@ export default function Home() {
                     {/* Top Workspace Header */}
                     <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                       <div>
-                        <h3 className="text-2xl font-black text-neutral-950 tracking-tight">Employer Control Plane</h3>
-                        <p className="text-xs text-neutral-400 font-normal mt-0.5">● Active Corporate Session • Acme Tech</p>
+                        <h3 className="text-2xl font-black text-neutral-950 tracking-tight">
+                          Employer Control Plane
+                        </h3>
+                        <p className="text-xs text-neutral-400 font-normal mt-0.5">
+                          ● Active Corporate Session • Acme Tech
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -487,8 +553,13 @@ export default function Home() {
                     {/* Main Inner Directory Card Container */}
                     <div className="bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-2xs space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-extrabold text-neutral-900">Corporate Openings & Recruitment Pipeline</h4>
-                        <Link href="/company/jobs" className="px-4 py-2 bg-neutral-950 text-white font-extrabold text-xs rounded-full shadow-xs hover:bg-neutral-800 transition-colors">
+                        <h4 className="text-sm font-extrabold text-neutral-900">
+                          Corporate Openings & Recruitment Pipeline
+                        </h4>
+                        <Link
+                          href="/company/jobs"
+                          className="px-4 py-2 bg-neutral-950 text-white font-extrabold text-xs rounded-full shadow-xs hover:bg-neutral-800 transition-colors"
+                        >
                           + Post New Opening
                         </Link>
                       </div>
@@ -501,8 +572,12 @@ export default function Home() {
                               FE
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">Senior Frontend Engineer</div>
-                              <div className="text-xs text-neutral-400 font-normal">₹12,00,000 - ₹18,00,000/yr • 42 Applicants</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                Senior Frontend Engineer
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                ₹12,00,000 - ₹18,00,000/yr • 42 Applicants
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-950 text-white text-[10px] font-extrabold rounded-full">
@@ -516,8 +591,12 @@ export default function Home() {
                               BE
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">Backend System Architect</div>
-                              <div className="text-xs text-neutral-400 font-normal">₹18,00,000 - ₹28,00,000/yr • 28 Applicants</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                Backend System Architect
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                ₹18,00,000 - ₹28,00,000/yr • 28 Applicants
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-200/70 text-neutral-700 text-[10px] font-bold rounded-full">
@@ -531,8 +610,12 @@ export default function Home() {
                               AI
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">AI & NLP Specialist</div>
-                              <div className="text-xs text-neutral-400 font-normal">₹15,00,000 - ₹24,00,000/yr • 19 Applicants</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                AI & NLP Specialist
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                ₹15,00,000 - ₹24,00,000/yr • 19 Applicants
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-200/70 text-neutral-700 text-[10px] font-bold rounded-full">
@@ -556,8 +639,12 @@ export default function Home() {
                     {/* Top Workspace Header */}
                     <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                       <div>
-                        <h3 className="text-2xl font-black text-neutral-950 tracking-tight">Institutional Placement Roster</h3>
-                        <p className="text-xs text-neutral-400 font-normal mt-0.5">● Academic Session • Batch 2026 Drive</p>
+                        <h3 className="text-2xl font-black text-neutral-950 tracking-tight">
+                          Institutional Placement Roster
+                        </h3>
+                        <p className="text-xs text-neutral-400 font-normal mt-0.5">
+                          ● Academic Session • Batch 2026 Drive
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -576,8 +663,13 @@ export default function Home() {
                     {/* Main Inner Directory Card Container */}
                     <div className="bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-2xs space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-extrabold text-neutral-900">Campus Placement Batch Roster</h4>
-                        <Link href="/institute/dashboard" className="px-4 py-2 bg-neutral-950 text-white font-extrabold text-xs rounded-full shadow-xs hover:bg-neutral-800 transition-colors">
+                        <h4 className="text-sm font-extrabold text-neutral-900">
+                          Campus Placement Batch Roster
+                        </h4>
+                        <Link
+                          href="/institute/dashboard"
+                          className="px-4 py-2 bg-neutral-950 text-white font-extrabold text-xs rounded-full shadow-xs hover:bg-neutral-800 transition-colors"
+                        >
                           + Issue QR Badge
                         </Link>
                       </div>
@@ -590,8 +682,12 @@ export default function Home() {
                               CS
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">Computer Science Batch A</div>
-                              <div className="text-xs text-neutral-400 font-normal">140 Students • 92% Placement Rate</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                Computer Science Batch A
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                140 Students • 92% Placement Rate
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-950 text-white text-[10px] font-extrabold rounded-full">
@@ -605,8 +701,12 @@ export default function Home() {
                               IT
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">Information Technology Batch B</div>
-                              <div className="text-xs text-neutral-400 font-normal">120 Students • 86% Placement Rate</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                Information Technology Batch B
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                120 Students • 86% Placement Rate
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-200/70 text-neutral-700 text-[10px] font-bold rounded-full">
@@ -620,8 +720,12 @@ export default function Home() {
                               AI
                             </div>
                             <div>
-                              <div className="text-sm font-extrabold text-neutral-950">AI & Data Engineering Roster</div>
-                              <div className="text-xs text-neutral-400 font-normal">80 Students • 88% Placement Rate</div>
+                              <div className="text-sm font-extrabold text-neutral-950">
+                                AI & Data Engineering Roster
+                              </div>
+                              <div className="text-xs text-neutral-400 font-normal">
+                                80 Students • 88% Placement Rate
+                              </div>
                             </div>
                           </div>
                           <span className="px-3 py-1 bg-neutral-200/70 text-neutral-700 text-[10px] font-bold rounded-full">
@@ -639,7 +743,10 @@ export default function Home() {
       </section>
 
       {/* MAGIC FEATURE SHOWCASE SECTION (MATCHING IMAGE 1 EXACTLY) */}
-      <section id="magic-section" className="py-36 sm:py-48 border-t border-neutral-200/80 bg-white px-6">
+      <section
+        id="magic-section"
+        className="py-36 sm:py-48 border-t border-neutral-200/80 bg-white px-6"
+      >
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Left Column: Title, Subtitle, and Feature Accordion Stack */}
           <div className="lg:col-span-6 space-y-8 text-left">
@@ -655,7 +762,9 @@ export default function Home() {
               </h2>
 
               <p className="text-neutral-500 text-sm sm:text-base leading-relaxed max-w-lg">
-                We&apos;ve reimagined career preparation and recruitment from the ground up, stripping away the complexity to leave you with pure, unadulterated power.
+                We&apos;ve reimagined career preparation and recruitment from
+                the ground up, stripping away the complexity to leave you with
+                pure, unadulterated power.
               </p>
             </div>
 
@@ -687,10 +796,14 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-0.5 min-w-0 text-left">
-                        <h4 className={`text-sm font-extrabold tracking-tight ${isActive ? "text-white" : "text-neutral-950"}`}>
+                        <h4
+                          className={`text-sm font-extrabold tracking-tight ${isActive ? "text-white" : "text-neutral-950"}`}
+                        >
                           {feature.title}
                         </h4>
-                        <p className={`text-xs font-mono truncate max-w-xs sm:max-w-md ${isActive ? "text-neutral-300 font-medium" : "text-neutral-500"}`}>
+                        <p
+                          className={`text-xs font-mono truncate max-w-xs sm:max-w-md ${isActive ? "text-neutral-300 font-medium" : "text-neutral-500"}`}
+                        >
                           {feature.subtitle}
                         </p>
                       </div>
@@ -739,7 +852,9 @@ export default function Home() {
                       <div className="flex items-center justify-between bg-neutral-900/90 border border-neutral-800 rounded-xl p-2.5">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-[11px] text-neutral-300 font-bold">LATEX 2.0 COMPILER ACTIVE</span>
+                          <span className="text-[11px] text-neutral-300 font-bold">
+                            LATEX 2.0 COMPILER ACTIVE
+                          </span>
                         </div>
                         <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
                           300 DPI PDF READY
@@ -750,8 +865,12 @@ export default function Home() {
                       <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 space-y-2.5 shadow-inner flex-1 flex flex-col justify-between">
                         <div className="border-b border-neutral-800 pb-2.5 flex items-center justify-between">
                           <div>
-                            <div className="text-sm font-black text-white">Anupam Singh</div>
-                            <div className="text-[11px] text-neutral-400">Fullstack Software Engineer • Bangalore, KA</div>
+                            <div className="text-sm font-black text-white">
+                              Anupam Singh
+                            </div>
+                            <div className="text-[11px] text-neutral-400">
+                              Fullstack Software Engineer • Bangalore, KA
+                            </div>
                           </div>
                           <div className="w-8 h-8 rounded-lg bg-white text-black font-extrabold flex items-center justify-center text-xs shrink-0">
                             LaTeX
@@ -759,10 +878,22 @@ export default function Home() {
                         </div>
 
                         <div className="space-y-1 pt-0.5">
-                          <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">CORE SKILLS</div>
+                          <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">
+                            CORE SKILLS
+                          </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {["React", "TypeScript", "Next.js 15", "Node.js", "Prisma", "PostgreSQL"].map((s) => (
-                              <span key={s} className="px-2 py-0.5 bg-neutral-800 text-white rounded text-[10px] font-bold border border-neutral-700">
+                            {[
+                              "React",
+                              "TypeScript",
+                              "Next.js 15",
+                              "Node.js",
+                              "Prisma",
+                              "PostgreSQL",
+                            ].map((s) => (
+                              <span
+                                key={s}
+                                className="px-2 py-0.5 bg-neutral-800 text-white rounded text-[10px] font-bold border border-neutral-700"
+                              >
                                 {s}
                               </span>
                             ))}
@@ -770,15 +901,27 @@ export default function Home() {
                         </div>
 
                         <div className="space-y-1 pt-0.5">
-                          <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">HIGHLIGHTED EXPERIENCE</div>
+                          <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">
+                            HIGHLIGHTED EXPERIENCE
+                          </div>
                           <div className="text-[11px] text-neutral-300 space-y-1">
                             <p className="flex items-start gap-1.5">
-                              <span className="text-emerald-400 font-bold">✓</span>
-                              <span>Architected real-time candidate recruitment pipeline with sub-150ms latency.</span>
+                              <span className="text-emerald-400 font-bold">
+                                ✓
+                              </span>
+                              <span>
+                                Architected real-time candidate recruitment
+                                pipeline with sub-150ms latency.
+                              </span>
                             </p>
                             <p className="flex items-start gap-1.5">
-                              <span className="text-emerald-400 font-bold">✓</span>
-                              <span>Optimized Next.js 15 bundle size and static page generation for 37 routes.</span>
+                              <span className="text-emerald-400 font-bold">
+                                ✓
+                              </span>
+                              <span>
+                                Optimized Next.js 15 bundle size and static page
+                                generation for 37 routes.
+                              </span>
                             </p>
                           </div>
                         </div>
@@ -787,8 +930,12 @@ export default function Home() {
                       {/* Interactive CTA Link */}
                       <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-xl flex items-center justify-between shadow-sm mt-2">
                         <div>
-                          <div className="text-[10px] text-neutral-400 uppercase font-bold">OUTPUT PREVIEW</div>
-                          <div className="font-bold text-white text-xs mt-0.5">Publication-Grade LaTeX PDF</div>
+                          <div className="text-[10px] text-neutral-400 uppercase font-bold">
+                            OUTPUT PREVIEW
+                          </div>
+                          <div className="font-bold text-white text-xs mt-0.5">
+                            Publication-Grade LaTeX PDF
+                          </div>
                         </div>
                         <Link
                           href="/resume"
@@ -814,7 +961,9 @@ export default function Home() {
                       <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                          <span className="text-[11px] text-white font-bold">RECORDING • SYSTEM DESIGN ROUND</span>
+                          <span className="text-[11px] text-white font-bold">
+                            RECORDING • SYSTEM DESIGN ROUND
+                          </span>
                         </div>
 
                         {/* Animated Speech Waveform Bars */}
@@ -828,30 +977,49 @@ export default function Home() {
 
                       {/* Live Transcribed Speech Bubble */}
                       <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-3.5 space-y-1.5 flex-1 flex flex-col justify-center">
-                        <div className="text-[10px] text-neutral-400 uppercase font-bold">CANDIDATE SPEECH INPUT</div>
+                        <div className="text-[10px] text-neutral-400 uppercase font-bold">
+                          CANDIDATE SPEECH INPUT
+                        </div>
                         <p className="text-[11px] text-neutral-200 italic leading-relaxed bg-neutral-950/60 p-2.5 rounded-xl border border-neutral-800">
-                          &quot;For high-concurrency event handling in Next.js 15, we utilize optimistic UI state combined with SQLite transactions via Prisma ORM to guarantee zero race conditions.&quot;
+                          &quot;For high-concurrency event handling in Next.js
+                          15, we utilize optimistic UI state combined with
+                          MongoDB transactions via Prisma ORM to protect
+                          concurrent updates.&quot;
                         </p>
                       </div>
 
                       {/* AI Scoring Meter & Breakdown Chips */}
                       <div className="grid grid-cols-2 gap-2.5">
                         <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 space-y-0.5">
-                          <div className="text-[10px] text-neutral-400 uppercase font-bold">SPEECH PACE</div>
-                          <div className="text-base font-extrabold text-white">142 WPM</div>
-                          <div className="text-[10px] text-emerald-400 font-bold">OPTIMAL VELOCITY</div>
+                          <div className="text-[10px] text-neutral-400 uppercase font-bold">
+                            SPEECH PACE
+                          </div>
+                          <div className="text-base font-extrabold text-white">
+                            142 WPM
+                          </div>
+                          <div className="text-[10px] text-emerald-400 font-bold">
+                            OPTIMAL VELOCITY
+                          </div>
                         </div>
 
                         <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 space-y-0.5">
-                          <div className="text-[10px] text-neutral-400 uppercase font-bold">AI EVALUATION</div>
-                          <div className="text-base font-extrabold text-white">92 / 100</div>
-                          <div className="text-[10px] text-emerald-400 font-bold">EXCELLENT DEPTH</div>
+                          <div className="text-[10px] text-neutral-400 uppercase font-bold">
+                            AI EVALUATION
+                          </div>
+                          <div className="text-base font-extrabold text-white">
+                            92 / 100
+                          </div>
+                          <div className="text-[10px] text-emerald-400 font-bold">
+                            EXCELLENT DEPTH
+                          </div>
                         </div>
                       </div>
 
                       {/* Interactive CTA Link */}
                       <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-xl flex items-center justify-between shadow-sm mt-2">
-                        <span className="text-[11px] text-neutral-300 font-bold">Ready to test your interview score?</span>
+                        <span className="text-[11px] text-neutral-300 font-bold">
+                          Ready to test your interview score?
+                        </span>
                         <Link
                           href="/mock-interview"
                           className="px-4 py-2 bg-white text-black font-bold text-xs rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-1.5 shrink-0"
@@ -874,9 +1042,15 @@ export default function Home() {
                     >
                       {/* ATS Gauge Display */}
                       <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 text-center space-y-2">
-                        <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">DETERMINISTIC ATS GAUGE</div>
-                        <div className="text-4xl font-black text-white tracking-tight">94% MATCH</div>
-                        <div className="text-[11px] text-neutral-400 font-mono">Target Role: Senior Fullstack Architect</div>
+                        <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">
+                          DETERMINISTIC ATS GAUGE
+                        </div>
+                        <div className="text-4xl font-black text-white tracking-tight">
+                          94% MATCH
+                        </div>
+                        <div className="text-[11px] text-neutral-400 font-mono">
+                          Target Role: Senior Fullstack Architect
+                        </div>
 
                         <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden mt-1.5">
                           <motion.div
@@ -890,7 +1064,9 @@ export default function Home() {
 
                       {/* Gates Checklist Box */}
                       <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-3.5 space-y-1.5 flex-1 flex flex-col justify-center">
-                        <div className="text-[10px] text-neutral-400 uppercase font-bold">GATE CHECK RESULTS (8/8 PASSED)</div>
+                        <div className="text-[10px] text-neutral-400 uppercase font-bold">
+                          GATE CHECK RESULTS (8/8 PASSED)
+                        </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px]">
                           <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
                             <Check className="w-3.5 h-3.5" />
@@ -913,7 +1089,9 @@ export default function Home() {
 
                       {/* Interactive CTA Link */}
                       <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-xl flex items-center justify-between shadow-sm mt-2">
-                        <span className="text-[11px] text-neutral-300 font-bold">Analyze your resume against any Job Description</span>
+                        <span className="text-[11px] text-neutral-300 font-bold">
+                          Analyze your resume against any Job Description
+                        </span>
                         <Link
                           href="/ats-checker"
                           className="px-4 py-2 bg-white text-black font-bold text-xs rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-1.5 shrink-0"
@@ -937,12 +1115,16 @@ export default function Home() {
                       {/* Active Job Card */}
                       <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3.5 space-y-1">
                         <div className="flex justify-between items-center">
-                          <span className="font-extrabold text-white text-sm">Senior Frontend Engineer</span>
+                          <span className="font-extrabold text-white text-sm">
+                            Senior Frontend Engineer
+                          </span>
                           <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold rounded">
                             ACTIVE RECRUITMENT
                           </span>
                         </div>
-                        <div className="text-[11px] text-neutral-400">₹12,00,000 - ₹18,00,000/yr • Full-Time Remote</div>
+                        <div className="text-[11px] text-neutral-400">
+                          ₹12,00,000 - ₹18,00,000/yr • Full-Time Remote
+                        </div>
                       </div>
 
                       {/* Applicant Evaluation Card */}
@@ -953,8 +1135,12 @@ export default function Home() {
                               AS
                             </div>
                             <div>
-                              <div className="font-bold text-white">Anupam Singh</div>
-                              <div className="text-[10px] text-neutral-400">Applied 12s ago • 94% ATS Match</div>
+                              <div className="font-bold text-white">
+                                Anupam Singh
+                              </div>
+                              <div className="text-[10px] text-neutral-400">
+                                Applied 12s ago • 94% ATS Match
+                              </div>
                             </div>
                           </div>
                           <span className="px-2.5 py-1 bg-white text-black text-[10px] font-extrabold rounded shrink-0">
@@ -963,7 +1149,9 @@ export default function Home() {
                         </div>
 
                         <div className="flex items-center justify-between pt-0.5">
-                          <span className="text-[10px] text-neutral-400 font-bold">HIRING ACTION:</span>
+                          <span className="text-[10px] text-neutral-400 font-bold">
+                            HIRING ACTION:
+                          </span>
                           <div className="flex items-center gap-2">
                             <span className="px-2.5 py-1 bg-neutral-800 text-white rounded text-[10px] font-bold border border-neutral-700">
                               Schedule Interview
@@ -977,7 +1165,9 @@ export default function Home() {
 
                       {/* Interactive CTA Link */}
                       <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-xl flex items-center justify-between shadow-sm mt-2">
-                        <span className="text-[11px] text-neutral-300 font-bold">Manage applicant pipelines & inspect resumes</span>
+                        <span className="text-[11px] text-neutral-300 font-bold">
+                          Manage applicant pipelines & inspect resumes
+                        </span>
                         <Link
                           href="/company/applications"
                           className="px-4 py-2 bg-white text-black font-bold text-xs rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-1.5 shrink-0"
@@ -996,7 +1186,10 @@ export default function Home() {
       </section>
 
       {/* SECTION 1: ROLE CAPABILITIES & ACCOUNT REGISTRATION */}
-      <section id="portals" className="py-36 sm:py-48 bg-white border-t border-neutral-200/80 px-6 relative overflow-hidden">
+      <section
+        id="portals"
+        className="py-36 sm:py-48 bg-white border-t border-neutral-200/80 px-6 relative overflow-hidden"
+      >
         {/* Ambient Subtle Background Grid Accent */}
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
 
@@ -1017,7 +1210,9 @@ export default function Home() {
               Comprehensive Role Capabilities
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 font-normal leading-relaxed">
-              Evaluate role-based workflows, recruitment pipelines, and security standards available across candidate, employer, and institutional workspaces.
+              Evaluate role-based workflows, recruitment pipelines, and security
+              standards available across candidate, employer, and institutional
+              workspaces.
             </p>
           </motion.div>
 
@@ -1040,55 +1235,58 @@ export default function Home() {
               transition={{ duration: 0.25 }}
               className="relative bg-white border border-neutral-200/90 rounded-3xl p-8 shadow-lg space-y-6 flex flex-col justify-between hover:border-neutral-950 hover:shadow-2xl transition-all group overflow-hidden"
             >
-                {/* Top Accent Gradient Bar */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neutral-950 via-emerald-500 to-neutral-950 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Top Accent Gradient Bar */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neutral-950 via-emerald-500 to-neutral-950 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div className="w-14 h-14 rounded-2xl bg-neutral-950 text-white flex items-center justify-center font-extrabold shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                      <FileText className="w-7 h-7 text-white" />
-                    </div>
-                    <span className="px-3 py-1 bg-neutral-100 text-neutral-950 rounded-full font-mono text-[10px] font-extrabold border border-neutral-200 tracking-wider">
-                      JOB SEEKER SUITE
-                    </span>
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-neutral-950 text-white flex items-center justify-center font-extrabold shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                    <FileText className="w-7 h-7 text-white" />
                   </div>
-
-                  <div>
-                    <h3 className="text-2xl font-extrabold text-neutral-950 tracking-tight">Candidate Workspace</h3>
-                    <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                      Full access to LaTeX Resume Builder, AI Mock Interviews, ATS Keyword Scanner, and 1-Click Applications.
-                    </p>
-                  </div>
-
-                  {/* Feature Checklist */}
-                  <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>LaTeX Resume & 300 DPI PDF Export</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Real-time Deterministic ATS Scanner</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>AI Voice Mock Interview Simulator</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>1-Click Verified Job Applications</span>
-                    </div>
-                  </div>
+                  <span className="px-3 py-1 bg-neutral-100 text-neutral-950 rounded-full font-mono text-[10px] font-extrabold border border-neutral-200 tracking-wider">
+                    JOB SEEKER SUITE
+                  </span>
                 </div>
 
-                <Link
-                  href="/register?role=candidate"
-                  className="w-full py-4 bg-neutral-950 text-white font-extrabold text-xs rounded-full hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-2.5 shadow-lg cursor-pointer group-hover:shadow-xl"
-                >
-                  <span>Register Candidate Account</span>
-                  <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </motion.div>
+                <div>
+                  <h3 className="text-2xl font-extrabold text-neutral-950 tracking-tight">
+                    Candidate Workspace
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
+                    Full access to LaTeX Resume Builder, AI Mock Interviews, ATS
+                    Keyword Scanner, and 1-Click Applications.
+                  </p>
+                </div>
+
+                {/* Feature Checklist */}
+                <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>LaTeX Resume & 300 DPI PDF Export</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Real-time Deterministic ATS Scanner</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>AI Voice Mock Interview Simulator</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>1-Click Verified Job Applications</span>
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                href="/register?role=candidate"
+                className="w-full py-4 bg-neutral-950 text-white font-extrabold text-xs rounded-full hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-2.5 shadow-lg cursor-pointer group-hover:shadow-xl"
+              >
+                <span>Register Candidate Account</span>
+                <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </motion.div>
 
             {/* Employer Card */}
             <motion.div
@@ -1100,55 +1298,58 @@ export default function Home() {
               transition={{ duration: 0.25 }}
               className="relative bg-white border border-neutral-200/90 rounded-3xl p-8 shadow-lg space-y-6 flex flex-col justify-between hover:border-emerald-600 hover:shadow-2xl transition-all group overflow-hidden"
             >
-                {/* Top Accent Gradient Bar */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-neutral-950 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Top Accent Gradient Bar */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-neutral-950 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div className="w-14 h-14 rounded-2xl bg-neutral-950 text-white flex items-center justify-center font-extrabold shadow-md group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
-                      <Building2 className="w-7 h-7 text-white" />
-                    </div>
-                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-700 rounded-full font-mono text-[10px] font-extrabold border border-emerald-500/20 tracking-wider">
-                      VERIFIED EMPLOYER
-                    </span>
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-neutral-950 text-white flex items-center justify-center font-extrabold shadow-md group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
+                    <Building2 className="w-7 h-7 text-white" />
                   </div>
-
-                  <div>
-                    <h3 className="text-2xl font-extrabold text-neutral-950 tracking-tight">Employer Control Plane</h3>
-                    <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                      Corporate opening creation, Indian Rupee (₹) salary ranges, candidate application review & status escalation.
-                    </p>
-                  </div>
-
-                  {/* Feature Checklist */}
-                  <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Verified Corporate Company Profile</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Custom Openings & ₹ Salary Ranges</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>LaTeX Resume & Full-Screen Viewer</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>6-Stage Application Pipeline Escalation</span>
-                    </div>
-                  </div>
+                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-700 rounded-full font-mono text-[10px] font-extrabold border border-emerald-500/20 tracking-wider">
+                    VERIFIED EMPLOYER
+                  </span>
                 </div>
 
-                <Link
-                  href="/register?role=company"
-                  className="w-full py-4 bg-neutral-950 text-white font-extrabold text-xs rounded-full hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-2.5 shadow-lg cursor-pointer group-hover:shadow-xl"
-                >
-                  <span>Register Corporate Account</span>
-                  <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </motion.div>
+                <div>
+                  <h3 className="text-2xl font-extrabold text-neutral-950 tracking-tight">
+                    Employer Control Plane
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
+                    Corporate opening creation, Indian Rupee (₹) salary ranges,
+                    candidate application review & status escalation.
+                  </p>
+                </div>
+
+                {/* Feature Checklist */}
+                <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Verified Corporate Company Profile</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Custom Openings & ₹ Salary Ranges</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>LaTeX Resume & Full-Screen Viewer</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>6-Stage Application Pipeline Escalation</span>
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                href="/register?role=company"
+                className="w-full py-4 bg-neutral-950 text-white font-extrabold text-xs rounded-full hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-2.5 shadow-lg cursor-pointer group-hover:shadow-xl"
+              >
+                <span>Register Corporate Account</span>
+                <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </motion.div>
 
             {/* Institute Card */}
             <motion.div
@@ -1160,61 +1361,67 @@ export default function Home() {
               transition={{ duration: 0.25 }}
               className="relative bg-white border border-neutral-200/90 rounded-3xl p-8 shadow-lg space-y-6 flex flex-col justify-between hover:border-blue-600 hover:shadow-2xl transition-all group overflow-hidden"
             >
-                {/* Top Accent Gradient Bar */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-neutral-950 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Top Accent Gradient Bar */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-neutral-950 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div className="w-14 h-14 rounded-2xl bg-neutral-950 text-white flex items-center justify-center font-extrabold shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                      <GraduationCap className="w-7 h-7 text-white" />
-                    </div>
-                    <span className="px-3 py-1 bg-blue-500/10 text-blue-700 rounded-full font-mono text-[10px] font-extrabold border border-blue-500/20 tracking-wider">
-                      ACADEMIC PARTNER
-                    </span>
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-neutral-950 text-white flex items-center justify-center font-extrabold shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                    <GraduationCap className="w-7 h-7 text-white" />
                   </div>
-
-                  <div>
-                    <h3 className="text-2xl font-extrabold text-neutral-950 tracking-tight">Institute Portal</h3>
-                    <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                      Student batch onboarding, placement readiness analytics, QR code verification badges, and campus drive sync.
-                    </p>
-                  </div>
-
-                  {/* Feature Checklist */}
-                  <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Student Roster & QR Verification Badges</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Batch Placement Readiness Analytics</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Campus Placement Drive Sync</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Enterprise Audit Log & Security Stream</span>
-                    </div>
-                  </div>
+                  <span className="px-3 py-1 bg-blue-500/10 text-blue-700 rounded-full font-mono text-[10px] font-extrabold border border-blue-500/20 tracking-wider">
+                    ACADEMIC PARTNER
+                  </span>
                 </div>
 
-                <Link
-                  href="/register?role=institute"
-                  className="w-full py-4 bg-neutral-950 text-white font-extrabold text-xs rounded-full hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-2.5 shadow-lg cursor-pointer group-hover:shadow-xl"
-                >
-                  <span>Register Institute Account</span>
-                  <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </motion.div>
+                <div>
+                  <h3 className="text-2xl font-extrabold text-neutral-950 tracking-tight">
+                    Institute Portal
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
+                    Student batch onboarding, placement readiness analytics, QR
+                    code verification badges, and campus drive sync.
+                  </p>
+                </div>
+
+                {/* Feature Checklist */}
+                <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Student Roster & QR Verification Badges</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Batch Placement Readiness Analytics</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Campus Placement Drive Sync</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Enterprise Audit Log & Security Stream</span>
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                href="/register?role=institute"
+                className="w-full py-4 bg-neutral-950 text-white font-extrabold text-xs rounded-full hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-2.5 shadow-lg cursor-pointer group-hover:shadow-xl"
+              >
+                <span>Register Institute Account</span>
+                <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </motion.div>
           </motion.div>
         </div>
       </section>
 
       {/* SECTION 2: ANIMATED ENTERPRISE PERFORMANCE & VELOCITY ENGINE */}
-      <section id="metrics" className="py-36 sm:py-48 bg-[#F8F9FA] border-t border-neutral-200/80 px-6 relative overflow-hidden">
+      <section
+        id="metrics"
+        className="py-36 sm:py-48 bg-[#F8F9FA] border-t border-neutral-200/80 px-6 relative overflow-hidden"
+      >
         {/* Ambient Subtle Background Accent */}
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
 
@@ -1235,7 +1442,8 @@ export default function Home() {
               Real-Time Platform Velocity
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 font-normal leading-relaxed">
-              Engineered natively on Next.js 15, Prisma ORM, and Web Speech APIs with zero mock fallbacks and instant state synchronization.
+              Engineered natively on Next.js 15, Prisma ORM, and Web Speech APIs
+              with zero mock fallbacks and instant state synchronization.
             </p>
           </motion.div>
 
@@ -1267,10 +1475,16 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">100% Native</div>
-                  <h4 className="text-base font-extrabold text-neutral-950 mt-1">LaTeX 2.0 Document Engine</h4>
+                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">
+                    100% Native
+                  </div>
+                  <h4 className="text-base font-extrabold text-neutral-950 mt-1">
+                    LaTeX 2.0 Document Engine
+                  </h4>
                   <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                    Compiles publication-grade A4 resumes with zero font distortion, deterministic margin math, and 300 DPI vector PDF output.
+                    Compiles publication-grade A4 resumes with zero font
+                    distortion, deterministic margin math, and 300 DPI vector
+                    PDF output.
                   </p>
                 </div>
 
@@ -1321,10 +1535,16 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">142 WPM</div>
-                  <h4 className="text-base font-extrabold text-neutral-950 mt-1">Real-Time AI Speech Matrix</h4>
+                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">
+                    142 WPM
+                  </div>
+                  <h4 className="text-base font-extrabold text-neutral-950 mt-1">
+                    Real-Time AI Speech Matrix
+                  </h4>
                   <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                    Evaluates technical depth, speech velocity, filler word frequency, and system design clarity in real-time practice rounds.
+                    Evaluates technical depth, speech velocity, filler word
+                    frequency, and system design clarity in real-time practice
+                    rounds.
                   </p>
                 </div>
 
@@ -1351,7 +1571,9 @@ export default function Home() {
 
               <div className="pt-3 text-[11px] font-mono text-neutral-400 flex items-center justify-between border-t border-neutral-100">
                 <span>AI SPEECH EVALUATION</span>
-                <span className="text-purple-600 font-bold">VERIFIED DEPTH</span>
+                <span className="text-purple-600 font-bold">
+                  VERIFIED DEPTH
+                </span>
               </div>
             </motion.div>
 
@@ -1375,10 +1597,16 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">Zero Latency</div>
-                  <h4 className="text-base font-extrabold text-neutral-950 mt-1">Prisma ORM Database Flow</h4>
+                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">
+                    Zero Latency
+                  </div>
+                  <h4 className="text-base font-extrabold text-neutral-950 mt-1">
+                    Prisma ORM Database Flow
+                  </h4>
                   <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                    Candidate applications, company openings, institutional student rosters, and hiring statuses sync instantly across all workspaces.
+                    Candidate applications, company openings, institutional
+                    student rosters, and hiring statuses sync instantly across
+                    all workspaces.
                   </p>
                 </div>
 
@@ -1402,7 +1630,9 @@ export default function Home() {
 
               <div className="pt-3 text-[11px] font-mono text-neutral-400 flex items-center justify-between border-t border-neutral-100">
                 <span>SECURITY PROTOCOL</span>
-                <span className="text-blue-600 font-bold">JWT SESSION SECURE</span>
+                <span className="text-blue-600 font-bold">
+                  JWT SESSION SECURE
+                </span>
               </div>
             </motion.div>
           </motion.div>
@@ -1410,7 +1640,10 @@ export default function Home() {
       </section>
 
       {/* Feature Grid Section - Matches Identify Reference Design */}
-      <section id="features" className="py-28 max-w-6xl mx-auto px-6 space-y-16">
+      <section
+        id="features"
+        className="py-28 max-w-6xl mx-auto px-6 space-y-16"
+      >
         <div className="text-center space-y-4 max-w-2xl mx-auto">
           <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-500 font-bold block">
             CORE CAPABILITIES
@@ -1419,7 +1652,8 @@ export default function Home() {
             Enterprise grade by default.
           </h2>
           <p className="text-xs sm:text-sm text-neutral-500 font-normal leading-relaxed">
-            Built natively on Next.js 15, Prisma ORM, and modern web standards with zero mock fallbacks.
+            Built natively on Next.js 15, Prisma ORM, and modern web standards
+            with zero mock fallbacks.
           </p>
         </div>
 
@@ -1431,8 +1665,8 @@ export default function Home() {
             hidden: { opacity: 0 },
             show: {
               opacity: 1,
-              transition: { staggerChildren: 0.1 }
-            }
+              transition: { staggerChildren: 0.1 },
+            },
           }}
           className="grid grid-cols-1 md:grid-cols-3 gap-8"
         >
@@ -1440,33 +1674,39 @@ export default function Home() {
             {
               icon: Bot,
               title: "AI Mock Interviewer",
-              description: "Practice tailored interviews for technical, system design, and behavioral roles with real-time speech evaluation."
+              description:
+                "Practice tailored interviews for technical, system design, and behavioral roles with real-time speech evaluation.",
             },
             {
               icon: FileText,
               title: "LaTeX Resume Builder",
-              description: "Craft clean, ATS-formatted resumes with live A4 preview, section reordering, and instant PDF download."
+              description:
+                "Craft clean, ATS-formatted resumes with live A4 preview, section reordering, and instant PDF download.",
             },
             {
               icon: BarChart3,
               title: "ATS Score Checker",
-              description: "Scan your resume against target Job Descriptions to analyze keyword density and missing skills."
+              description:
+                "Scan your resume against target Job Descriptions to analyze keyword density and missing skills.",
             },
             {
               icon: Building2,
               title: "Verified Employer Portal",
-              description: "Create corporate openings with ₹ salary periods, inspect applicant resumes, and advance hiring statuses."
+              description:
+                "Create corporate openings with ₹ salary periods, inspect applicant resumes, and advance hiring statuses.",
             },
             {
               icon: Briefcase,
               title: "Jobs Marketplace",
-              description: "Filter openings by tech stack, location, work mode, and salary. Apply with 1-click using your resume."
+              description:
+                "Filter openings by tech stack, location, work mode, and salary. Apply with 1-click using your resume.",
             },
             {
               icon: ShieldCheck,
               title: "Institutional Verification",
-              description: "QR code verification badges for candidate credentials, university rosters, and campus hiring drives."
-            }
+              description:
+                "QR code verification badges for candidate credentials, university rosters, and campus hiring drives.",
+            },
           ].map((cap, idx) => {
             const IconComponent = cap.icon;
             const isHighlight = idx === 1; // Default highlight second card like reference image
@@ -1475,7 +1715,11 @@ export default function Home() {
                 key={idx}
                 variants={{
                   hidden: { opacity: 0, y: 24 },
-                  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+                  show: {
+                    opacity: 1,
+                    y: 0,
+                    transition: { duration: 0.5, ease: "easeOut" },
+                  },
                 }}
                 className={`group relative bg-white border rounded-3xl p-8 transition-all duration-300 flex flex-col justify-between space-y-6 cursor-pointer hover:-translate-y-1 ${
                   isHighlight
@@ -1514,7 +1758,10 @@ export default function Home() {
       </section>
 
       {/* Animated Brand Marquee Section (Matching Image 2 Reference Layout) */}
-      <section id="brands" className="py-20 sm:py-24 border-y border-neutral-200/80 bg-white overflow-hidden relative">
+      <section
+        id="brands"
+        className="py-20 sm:py-24 border-y border-neutral-200/80 bg-white overflow-hidden relative"
+      >
         {/* Left & Right Edge Gradient Fades */}
         <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
@@ -1549,7 +1796,10 @@ export default function Home() {
                 { name: "Apex Systems", initial: "A" },
                 { name: "Starlight Bio", initial: "S" },
               ].map((brand, i) => (
-                <div key={i} className="flex items-center gap-3 shrink-0 group cursor-default">
+                <div
+                  key={i}
+                  className="flex items-center gap-3 shrink-0 group cursor-default"
+                >
                   <div className="w-8 h-8 rounded-full bg-neutral-400/90 text-white font-black flex items-center justify-center text-xs shadow-2xs group-hover:bg-neutral-950 transition-colors">
                     {brand.initial}
                   </div>
@@ -1564,7 +1814,10 @@ export default function Home() {
       </section>
 
       {/* Testimonials Quote Cards Section (Matching Identify Reference Layout Exactly) */}
-      <section id="testimonials" className="py-36 sm:py-44 border-t border-neutral-200/80 bg-[#FAFAFA] px-6 text-left">
+      <section
+        id="testimonials"
+        className="py-36 sm:py-44 border-t border-neutral-200/80 bg-[#FAFAFA] px-6 text-left"
+      >
         <div className="max-w-6xl mx-auto space-y-16">
           {/* Section Header */}
           <div className="text-center space-y-4 max-w-2xl mx-auto">
@@ -1575,7 +1828,8 @@ export default function Home() {
               Trusted by Leaders Worldwide
             </h2>
             <p className="text-neutral-500 text-sm sm:text-base font-normal leading-relaxed">
-              Discover how top engineering managers, hiring directors, and candidate applicants accelerate placement velocity.
+              Discover how top engineering managers, hiring directors, and
+              candidate applicants accelerate placement velocity.
             </p>
           </div>
 
@@ -1654,7 +1908,10 @@ export default function Home() {
       </section>
 
       {/* PRICING SECTION */}
-      <section id="pricing" className="py-36 sm:py-48 bg-white border-t border-neutral-200/80 px-6 relative overflow-hidden">
+      <section
+        id="pricing"
+        className="py-36 sm:py-48 bg-white border-t border-neutral-200/80 px-6 relative overflow-hidden"
+      >
         <div className="max-w-6xl mx-auto space-y-12 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1671,7 +1928,8 @@ export default function Home() {
               Flexible Plans for Every Career Goal
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 font-normal leading-relaxed">
-              Start building publication-ready LaTeX resumes and practicing AI interviews for free, or scale with enterprise employer tools.
+              Start building publication-ready LaTeX resumes and practicing AI
+              interviews for free, or scale with enterprise employer tools.
             </p>
           </motion.div>
 
@@ -1686,8 +1944,12 @@ export default function Home() {
                   CANDIDATE STARTER
                 </span>
                 <div>
-                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight font-mono">₹0</div>
-                  <p className="text-xs text-neutral-500 mt-1">Free Forever • No Credit Card Required</p>
+                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight font-mono">
+                    ₹0
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Free Forever • No Credit Card Required
+                  </p>
                 </div>
 
                 <div className="space-y-2.5 pt-4 border-t border-neutral-100 text-xs font-mono text-neutral-700">
@@ -1733,8 +1995,15 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <div className="text-4xl font-extrabold text-white tracking-tight font-mono">₹499 <span className="text-xs text-neutral-400 font-sans font-normal">/ month</span></div>
-                  <p className="text-xs text-neutral-400 mt-1">For Ambitious Job Seekers & Engineers</p>
+                  <div className="text-4xl font-extrabold text-white tracking-tight font-mono">
+                    ₹499{" "}
+                    <span className="text-xs text-neutral-400 font-sans font-normal">
+                      / month
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    For Ambitious Job Seekers & Engineers
+                  </p>
                 </div>
 
                 <div className="space-y-2.5 pt-4 border-t border-neutral-800 text-xs font-mono text-neutral-300">
@@ -1780,8 +2049,15 @@ export default function Home() {
                   ENTERPRISE & CAMPUS
                 </span>
                 <div>
-                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight font-mono">₹4,999 <span className="text-xs text-neutral-500 font-sans font-normal">/ month</span></div>
-                  <p className="text-xs text-neutral-500 mt-1">For Verified Corporate Employers & Universities</p>
+                  <div className="text-4xl font-extrabold text-neutral-950 tracking-tight font-mono">
+                    ₹4,999{" "}
+                    <span className="text-xs text-neutral-500 font-sans font-normal">
+                      / month
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    For Verified Corporate Employers & Universities
+                  </p>
                 </div>
 
                 <div className="space-y-2.5 pt-4 border-t border-neutral-100 text-xs font-mono text-neutral-700">
@@ -1821,7 +2097,10 @@ export default function Home() {
       </section>
 
       {/* DOCUMENTATION & ARCHITECTURE SECTION */}
-      <section id="docs" className="py-36 sm:py-48 bg-[#F8F9FA] border-t border-neutral-200/80 px-6">
+      <section
+        id="docs"
+        className="py-36 sm:py-48 bg-[#F8F9FA] border-t border-neutral-200/80 px-6"
+      >
         <div className="max-w-6xl mx-auto space-y-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1838,7 +2117,8 @@ export default function Home() {
               Built on Modern Monolithic Standards
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 font-normal leading-relaxed">
-              Explore the technical architecture, zero-fallback APIs, and deterministic engines powering Vantory.
+              Explore the technical architecture, zero-fallback APIs, and
+              deterministic engines powering Vantory.
             </p>
           </motion.div>
 
@@ -1848,9 +2128,14 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-neutral-950 text-white flex items-center justify-center font-mono font-bold text-xs">
                 01
               </div>
-              <h3 className="text-xl font-extrabold text-neutral-950">LaTeX 2.0 Vector Compilation</h3>
+              <h3 className="text-xl font-extrabold text-neutral-950">
+                LaTeX 2.0 Vector Compilation
+              </h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
-                The document compiler uses strict A4 margin mathematics to eliminate text truncation and font overlap. PDF output is compiled natively to 300 DPI vector specifications to guarantee 100% readability across top Applicant Tracking Systems.
+                The document compiler uses strict A4 margin mathematics to
+                eliminate text truncation and font overlap. PDF output is
+                compiled natively to 300 DPI vector specifications to guarantee
+                100% readability across top Applicant Tracking Systems.
               </p>
               <div className="p-3 bg-neutral-950 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto">
                 <code>{`pdflatex -interaction=nonstopmode -output-directory=/tmp resume.tex`}</code>
@@ -1862,9 +2147,14 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-neutral-950 text-white flex items-center justify-center font-mono font-bold text-xs">
                 02
               </div>
-              <h3 className="text-xl font-extrabold text-neutral-950">Voice AI Speech Matrix & WPM</h3>
+              <h3 className="text-xl font-extrabold text-neutral-950">
+                Voice AI Speech Matrix & WPM
+              </h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
-                Speech input is evaluated in real-time via Web Speech APIs. The engine calculates word velocity (WPM), technical keyword density, and filler word ratios to generate adaptive 7-day preparation roadmaps.
+                Speech input is evaluated in real-time via Web Speech APIs. The
+                engine calculates word velocity (WPM), technical keyword
+                density, and filler word ratios to generate adaptive 7-day
+                preparation roadmaps.
               </p>
               <div className="p-3 bg-neutral-950 text-purple-400 font-mono text-[11px] rounded-xl overflow-x-auto">
                 <code>{`evaluateSpeech({ transcript, durationMs }) => { wpm: 142, depth: 'HIGH' }`}</code>
@@ -1876,9 +2166,14 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-neutral-950 text-white flex items-center justify-center font-mono font-bold text-xs">
                 03
               </div>
-              <h3 className="text-xl font-extrabold text-neutral-950">ATS Taxonomical Keyword Matching</h3>
+              <h3 className="text-xl font-extrabold text-neutral-950">
+                ATS Taxonomical Keyword Matching
+              </h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
-                Scans job descriptions against candidate skills using exact matching, alias normalization, and related skill taxonomy evaluation. Built-in Prompt Guard neutralizes prompt injection attacks embedded in job listings.
+                Scans job descriptions against candidate skills using exact
+                matching, alias normalization, and related skill taxonomy
+                evaluation. Built-in Prompt Guard neutralizes prompt injection
+                attacks embedded in job listings.
               </p>
               <div className="p-3 bg-neutral-950 text-blue-400 font-mono text-[11px] rounded-xl overflow-x-auto">
                 <code>{`scanAtsCompliance(resumeText, jobDescription) => { score: 94, missingKeywords: [...] }`}</code>
@@ -1890,9 +2185,16 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-neutral-950 text-white flex items-center justify-center font-mono font-bold text-xs">
                 04
               </div>
-              <h3 className="text-xl font-extrabold text-neutral-950">Prisma ORM & Full-Viewport React Portals</h3>
+              <h3 className="text-xl font-extrabold text-neutral-950">
+                Prisma ORM & Full-Viewport React Portals
+              </h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
-                Database queries execute directly via Prisma ORM on a local SQLite store. All interactive modals use React <code className="text-neutral-950 font-bold">createPortal(..., document.body)</code> for full viewport overlay rendering free of z-index clipping.
+                Database queries execute through Prisma ORM on MongoDB Atlas.
+                All interactive modals use React{" "}
+                <code className="text-neutral-950 font-bold">
+                  createPortal(..., document.body)
+                </code>{" "}
+                for full viewport overlay rendering free of z-index clipping.
               </p>
               <div className="p-3 bg-neutral-950 text-amber-400 font-mono text-[11px] rounded-xl overflow-x-auto">
                 <code>{`createPortal(<ModalContent />, document.body)`}</code>
@@ -1903,7 +2205,10 @@ export default function Home() {
       </section>
 
       {/* FAQ Section (Matching Identify Reference Layout Exactly) */}
-      <section id="faq" className="py-36 sm:py-48 border-t border-neutral-200/80 bg-white px-6">
+      <section
+        id="faq"
+        className="py-36 sm:py-48 border-t border-neutral-200/80 bg-white px-6"
+      >
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 sm:gap-16 items-start">
           {/* Left Column: Headline & Subtitle */}
           <div className="lg:col-span-5 space-y-4 text-left">
@@ -1911,7 +2216,8 @@ export default function Home() {
               Frequently Asked Questions
             </h2>
             <p className="text-neutral-400 text-sm sm:text-base leading-relaxed max-w-sm font-normal">
-              Everything you need to know about the product and workflows. Have more questions? Reach out to our team.
+              Everything you need to know about the product and workflows. Have
+              more questions? Reach out to our team.
             </p>
           </div>
 
@@ -1940,7 +2246,7 @@ export default function Home() {
               },
               {
                 q: "Is candidate and corporate data synchronized in real-time?",
-                a: "Absolutely. All user profiles, corporate job listings, resume templates, mock interview scores, and applicant statuses are persisted directly in a SQLite database via Prisma ORM with strict JWT authentication and cookie session management.",
+                a: "Absolutely. All user profiles, corporate job listings, resume templates, mock interview scores, and applicant statuses are persisted in MongoDB Atlas via Prisma ORM with strict JWT authentication and cookie session management.",
               },
             ].map((faq, index) => {
               const isOpen = openFaqIndex === index;
@@ -1989,7 +2295,8 @@ export default function Home() {
             Get Started with Vantory Today.
           </h2>
           <p className="text-neutral-500 text-sm sm:text-base max-w-md mx-auto font-normal leading-relaxed">
-            Join candidate applicants, verified employers, and educational institutions on a unified career engine.
+            Join candidate applicants, verified employers, and educational
+            institutions on a unified career engine.
           </p>
 
           <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -2020,7 +2327,8 @@ export default function Home() {
                 </span>
               </div>
               <p className="text-[13px] text-neutral-400 font-normal leading-relaxed max-w-[250px]">
-                The premium enterprise platform for career acceleration, ATS resume building, AI mock interviews, and corporate recruitment.
+                The premium enterprise platform for career acceleration, ATS
+                resume building, AI mock interviews, and corporate recruitment.
               </p>
               <div className="flex items-center gap-5 pt-3">
                 <a
@@ -2053,27 +2361,42 @@ export default function Home() {
               </h4>
               <ul className="space-y-3.5 text-[13px] text-neutral-400 font-normal">
                 <li>
-                  <Link href="/resume" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/resume"
+                    className="hover:text-white transition-colors block"
+                  >
                     LaTeX Resume Builder
                   </Link>
                 </li>
                 <li>
-                  <Link href="/mock-interview" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/mock-interview"
+                    className="hover:text-white transition-colors block"
+                  >
                     AI Mock Interview
                   </Link>
                 </li>
                 <li>
-                  <Link href="/ats-checker" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/ats-checker"
+                    className="hover:text-white transition-colors block"
+                  >
                     ATS Checker
                   </Link>
                 </li>
                 <li>
-                  <Link href="/company/dashboard" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/company/dashboard"
+                    className="hover:text-white transition-colors block"
+                  >
                     Employer Portal
                   </Link>
                 </li>
                 <li>
-                  <Link href="/institute/dashboard" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/institute/dashboard"
+                    className="hover:text-white transition-colors block"
+                  >
                     Institute Roster
                   </Link>
                 </li>
@@ -2087,27 +2410,42 @@ export default function Home() {
               </h4>
               <ul className="space-y-3.5 text-[13px] text-neutral-400 font-normal">
                 <li>
-                  <Link href="/resume" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/resume"
+                    className="hover:text-white transition-colors block"
+                  >
                     Documentation
                   </Link>
                 </li>
                 <li>
-                  <Link href="/login" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/login"
+                    className="hover:text-white transition-colors block"
+                  >
                     Help Center
                   </Link>
                 </li>
                 <li>
-                  <Link href="/resume" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/resume"
+                    className="hover:text-white transition-colors block"
+                  >
                     LaTeX Templates
                   </Link>
                 </li>
                 <li>
-                  <Link href="/ats-checker" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/ats-checker"
+                    className="hover:text-white transition-colors block"
+                  >
                     API Reference
                   </Link>
                 </li>
                 <li>
-                  <Link href="/jobs" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/jobs"
+                    className="hover:text-white transition-colors block"
+                  >
                     Community
                   </Link>
                 </li>
@@ -2121,27 +2459,42 @@ export default function Home() {
               </h4>
               <ul className="space-y-3.5 text-[13px] text-neutral-400 font-normal">
                 <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/"
+                    className="hover:text-white transition-colors block"
+                  >
                     About Us
                   </Link>
                 </li>
                 <li>
-                  <Link href="/jobs" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/jobs"
+                    className="hover:text-white transition-colors block"
+                  >
                     Careers
                   </Link>
                 </li>
                 <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/"
+                    className="hover:text-white transition-colors block"
+                  >
                     Blog
                   </Link>
                 </li>
                 <li>
-                  <Link href="/login" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/login"
+                    className="hover:text-white transition-colors block"
+                  >
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link href="/company/dashboard" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/company/dashboard"
+                    className="hover:text-white transition-colors block"
+                  >
                     Enterprise Partners
                   </Link>
                 </li>
@@ -2155,22 +2508,34 @@ export default function Home() {
               </h4>
               <ul className="space-y-3.5 text-[13px] text-neutral-400 font-normal">
                 <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/"
+                    className="hover:text-white transition-colors block"
+                  >
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/"
+                    className="hover:text-white transition-colors block"
+                  >
                     Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/"
+                    className="hover:text-white transition-colors block"
+                  >
                     Security
                   </Link>
                 </li>
                 <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
+                  <Link
+                    href="/"
+                    className="hover:text-white transition-colors block"
+                  >
                     Cookie Policy
                   </Link>
                 </li>

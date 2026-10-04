@@ -1,5 +1,5 @@
 /**
- * Centralized Skill Taxonomy & Normalization Engine (v2.1)
+ * Centralized Skill Taxonomy & Normalization Engine (v3.0)
  * Handles exact matching, normalization, alias resolution, & related skill distinctions.
  * Enforces rule: Related technologies (e.g. MySQL vs PostgreSQL, Docker vs Kubernetes) receive RELATED status, NOT full match credit.
  */
@@ -74,6 +74,26 @@ export const CANONICAL_SKILL_MAP: Record<string, string> = {
   ci: "CI/CD",
   cd: "CI/CD",
   "ci/cd": "CI/CD",
+
+  // Data analyst and fresher preparation vocabulary
+  sql: "SQL",
+  "structured query language": "SQL",
+  excel: "Excel",
+  "microsoft excel": "Excel",
+  pandas: "Pandas",
+  numpy: "NumPy",
+  tableau: "Tableau",
+  "power bi": "Power BI",
+  powerbi: "Power BI",
+  statistics: "Statistics",
+  "data visualization": "Data Visualization",
+  "data visualisation": "Data Visualization",
+  "data analysis": "Data Analysis",
+  "data cleaning": "Data Cleaning",
+  git: "Git",
+  "unit testing": "Unit Testing",
+  "data structures": "Data Structures",
+  algorithms: "Algorithms",
 
   // Databases & Storage
   postgres: "PostgreSQL",

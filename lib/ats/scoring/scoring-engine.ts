@@ -1,16 +1,18 @@
 /**
- * Production AI Resume ATS & Job Match Analysis Engine (v2.1)
+ * Rule-based Resume & Job Match Analysis Engine (v3.1)
  * Evaluates:
- * 1. ATS Compatibility Score (35% Parsing, 20% Sections, 20% Formatting, 10% Contact, 10% Dates, 5% Extraction)
+ * 1. Text/structure comparison; visual layout is unassessed; absent work history is not penalized
  * 2. Job Match Score (40% Required Skills, 15% Preferred, 10% Coverage, 10% Evidence, 10% Responsibilities, 5% Exp, 5% Title, 5% Edu)
  * 3. Overall Application Score (30% ATS Compatibility + 70% Job Match)
- * 4. Why Points Were Lost (Exact transparent point deductions)
+ * 4. Qualitative explanations of match gaps
  * 5. Score Improvement Simulator (Actionable expected gains)
  * 6. Truth Guard System (Prevents fabricated skills/metrics)
- * 7. Achievement & Bullet Quality Analysis (Verb + Context + Scope + Metric)
+ * 7. Rule-based bullet writing checks (contribution, scope, method and checks)
  * 8. Keyword Stuffing Detection (Contextual evidence ratio)
  */
 
+import { assessBullet, normalizedBulletScore } from "@/lib/resume/bullet-feedback";
+import { skillPattern } from "../taxonomy/text-skills";
 import { UnifiedParsedResume } from "../parser/resume-parser";
 import {
   StructuredJobDescription,
@@ -31,14 +33,16 @@ import { evaluateCriticalGates } from "./critical-gates";
 export function generateATSReportSnapshot(
   resume: UnifiedParsedResume,
   jd: StructuredJobDescription,
-  scanId?: string
+  scanId?: string,
+  simulate = true,
 ): ATSReportSnapshot {
   // 1. Extract Evidence & Match Tables
   const evidenceRes = extractEvidence(
     resume,
     jd.requiredSkills,
     jd.preferredSkills,
-    jd.minYearsExperience
+    jd.minYearsExperience,
+    jd.educationRequirement,
   );
 
   // 2. Evaluate Experience & Education
@@ -55,79 +59,129 @@ export function generateATSReportSnapshot(
   const keywordStuffingAudit = analyzeKeywordStuffing(resume, jd);
 
   // 6. Calculate Detailed Match Metrics
-  const requiredSkillsCount = Math.max(1, jd.requiredSkills.length);
-  const matchedRequiredSkills = evidenceRes.skillsTable.filter(
-    (s) => s.requirementType === "REQUIRED" && s.matchType !== "NOT_FOUND" && s.matchType !== "RELATED"
+  const requiredSkillsCount = jd.requiredSkills.length;
+  const requiredSkillEvidence = evidenceRes.skillsTable.filter(
+    (skill) => skill.requirementType === "REQUIRED",
   );
-  const requiredQualificationsScore = Math.round((matchedRequiredSkills.length / requiredSkillsCount) * 100);
+  const requiredQualificationsScore =
+    requiredSkillsCount > 0
+      ? Math.round(
+          (requiredSkillEvidence.reduce(
+            (score, skill) => score + skillMatchCredit(skill.matchType),
+            0,
+          ) /
+            requiredSkillsCount) *
+            100,
+        )
+      : 50;
 
-  const preferredSkillsCount = Math.max(1, jd.preferredSkills.length);
-  const matchedPreferredSkills = evidenceRes.skillsTable.filter(
-    (s) => s.requirementType === "PREFERRED" && s.matchType !== "NOT_FOUND"
+  const preferredSkillsCount = jd.preferredSkills.length;
+  const preferredSkillEvidence = evidenceRes.skillsTable.filter(
+    (skill) => skill.requirementType === "PREFERRED",
   );
-  const preferredQualificationsScore = jd.preferredSkills.length > 0
-    ? Math.round((matchedPreferredSkills.length / preferredSkillsCount) * 100)
-    : 85;
+  const preferredQualificationsScore =
+    preferredSkillsCount > 0
+      ? Math.round(
+          (preferredSkillEvidence.reduce(
+            (score, skill) => score + skillMatchCredit(skill.matchType),
+            0,
+          ) /
+            preferredSkillsCount) *
+            100,
+        )
+      : 50;
 
-  const skillsMatchScore = Math.round(
-    requiredQualificationsScore * 0.75 + preferredQualificationsScore * 0.25
-  );
+  const skillsMatchScore =
+    requiredSkillsCount > 0 && preferredSkillsCount > 0
+      ? Math.round(
+          requiredQualificationsScore * 0.75 +
+            preferredQualificationsScore * 0.25,
+        )
+      : requiredSkillsCount > 0
+        ? requiredQualificationsScore
+        : preferredSkillsCount > 0
+          ? preferredQualificationsScore
+          : 50;
 
-  const totalReqPref = requiredSkillsCount + (jd.preferredSkills.length || 1);
-  const keywordCoverageScore = Math.min(
-    100,
-    Math.round(((matchedRequiredSkills.length + matchedPreferredSkills.length) / totalReqPref) * 100)
+  const totalReqPref = requiredSkillsCount + preferredSkillsCount;
+  const matchedRequiredSkills = requiredSkillEvidence.filter(
+    (skill) => skillMatchCredit(skill.matchType) > 0,
   );
+  const matchedPreferredSkills = preferredSkillEvidence.filter(
+    (skill) => skillMatchCredit(skill.matchType) > 0,
+  );
+  const keywordCoverageScore =
+    totalReqPref > 0
+      ? Math.min(
+          100,
+          Math.round(
+            ((matchedRequiredSkills.reduce(
+              (score, skill) => score + skillMatchCredit(skill.matchType),
+              0,
+            ) +
+              matchedPreferredSkills.reduce(
+                (score, skill) => score + skillMatchCredit(skill.matchType),
+                0,
+              )) /
+              totalReqPref) *
+              100,
+          ),
+        )
+      : 50;
 
   // Skill Evidence Score: ratio of skills with STRONG evidence vs WEAK
-  const strongEvidenceCount = evidenceRes.skillsTable.filter((s) => s.evidenceLevel === "STRONG").length;
-  const skillEvidenceScore = Math.min(
-    100,
-    Math.round((strongEvidenceCount / Math.max(1, evidenceRes.skillsTable.length)) * 100 + 20)
-  );
+  const strongEvidenceCount = evidenceRes.skillsTable.filter(
+    (s) => s.evidenceLevel === "STRONG",
+  ).length;
+  const skillEvidenceScore =
+    evidenceRes.skillsTable.length > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (strongEvidenceCount / evidenceRes.skillsTable.length) * 100 + 20,
+          ),
+        )
+      : 50;
 
   // Responsibilities & Title Alignment
-  const titleAlignmentScore = calculateTitleAlignment(resume.headline || "", jd.title);
-  const responsibilitiesScore = Math.round((requiredQualificationsScore * 0.6 + expRes.experienceScore * 0.4));
+  const titleAlignmentScore = calculateTitleAlignment(
+    resume.headline || "",
+    jd.title,
+  );
+  const responsibilitiesScore = Math.round(
+    requiredQualificationsScore * 0.6 + expRes.experienceScore * 0.4,
+  );
 
   // 7. ATS Compatibility Score Calculation
   // 35% Parsing, 20% Sections, 20% Formatting Safety, 10% Contact, 10% Dates, 5% Extraction
   const contactDetected = Boolean(resume.email && resume.phone);
-  const datesDetected = resume.experiences.every((e) => Boolean(e.startDate));
-  const hasTwoColumnLayout = resume.rawText.includes("  |  ") || resume.rawText.includes("   ");
-  const hasIcons = resume.rawText.includes("✉") || resume.rawText.includes("☎") || resume.rawText.includes("📍");
+  const datesDetected =
+    resume.experiences.length > 0 &&
+    resume.experiences.every((e) => Boolean(e.startDate && e.endDate));
+  // Extracted text has no geometry. Whitespace cannot establish column layout.
+  const hasTwoColumnLayout = false;
+  const hasIcons = false;
 
-  const parsingQuality = resume.parseConfidence >= 90 ? 98 : 85;
-  const sectionDetection = Math.min(100, resume.sectionsDetected.length * 18);
-  const formattingSafety = 100 - (hasTwoColumnLayout ? 15 : 0) - (hasIcons ? 10 : 0);
-  const contactDetectionScore = contactDetected ? 100 : 50;
+  const parsingQuality = Math.max(0, Math.min(100, resume.parseConfidence));
+  const essentialSections = [resume.sectionsDetected.includes("Education"), resume.sectionsDetected.includes("Skills"), resume.sectionsDetected.some(s => s === "Experience" || s === "Projects")];
+  const sectionDetection = Math.round(essentialSections.filter(Boolean).length / essentialSections.length * 100);
+  const contactDetectionScore = resume.email ? 100 : 0;
   const dateParsingScore = datesDetected ? 100 : 70;
-  const textExtractionScore = 100;
+  const textExtractionScore = resume.rawText.trim() ? 100 : 0;
 
-  const atsCompatibilityScore = Math.min(
-    100,
-    Math.round(
-      parsingQuality * 0.35 +
-      sectionDetection * 0.20 +
-      formattingSafety * 0.20 +
-      contactDetectionScore * 0.10 +
-      dateParsingScore * 0.10 +
-      textExtractionScore * 0.05
-    )
-  );
+  const compatibilityWeights: Array<[number,number]> = [[parsingQuality,35],[sectionDetection,20],[contactDetectionScore,10],[textExtractionScore,5]];
+  if (resume.experiences.length) compatibilityWeights.push([dateParsingScore,10]);
+  const atsCompatibilityScore = resume.rawText.trim() ? Math.round(compatibilityWeights.reduce((sum,[score,weight])=>sum+score*weight,0)/compatibilityWeights.reduce((sum,[,weight])=>sum+weight,0)) : 0;
 
   // 8. Job Match Score Calculation
   // 40% Required Skills, 15% Preferred, 10% Coverage, 10% Evidence, 10% Responsibilities, 5% Exp, 5% Title, 5% Edu
-  let rawJobMatchScore = Math.round(
-    requiredQualificationsScore * 0.40 +
-    preferredQualificationsScore * 0.15 +
-    keywordCoverageScore * 0.10 +
-    skillEvidenceScore * 0.10 +
-    responsibilitiesScore * 0.10 +
-    expRes.experienceScore * 0.05 +
-    titleAlignmentScore * 0.05 +
-    eduRes.score * 0.05
-  );
+  const assessedWeights: Array<[number,number]> = [];
+  if (requiredSkillsCount) assessedWeights.push([requiredQualificationsScore,40],[skillEvidenceScore,15],[keywordCoverageScore,10]);
+  if (preferredSkillsCount) assessedWeights.push([preferredQualificationsScore,15]);
+  if (jd.minYearsExperience>0) assessedWeights.push([expRes.experienceScore,15]);
+  if (jd.educationRequirement) assessedWeights.push([eduRes.score,10]);
+  if (resume.headline && jd.title) assessedWeights.push([titleAlignmentScore,5]);
+  let rawJobMatchScore = resume.rawText.trim() && assessedWeights.length ? Math.round(assessedWeights.reduce((a,[score,w])=>a+score*w,0)/assessedWeights.reduce((a,[,w])=>a+w,0)) : 0;
 
   // Critical Gate Penalty
   if (criticalGaps.some((g) => g.severity === "CRITICAL")) {
@@ -136,18 +190,15 @@ export function generateATSReportSnapshot(
     rawJobMatchScore = Math.min(rawJobMatchScore, 78);
   }
 
-  const jobMatchScore = Math.min(98, Math.max(15, rawJobMatchScore));
+  const jobMatchScore = Math.min(98, Math.max(0, rawJobMatchScore));
 
   // 9. Overall Application Score (30% ATS + 70% Job Match)
   const overallApplicationScore = Math.round(
-    atsCompatibilityScore * 0.30 + jobMatchScore * 0.70
+    atsCompatibilityScore * 0.3 + jobMatchScore * 0.7,
   );
 
-  const resumeQualityScore = Math.round(
-    atsCompatibilityScore * 0.40 +
-    bulletQualityAudit.strongCount * 10 +
-    (sectionDetection > 80 ? 30 : 15)
-  );
+  const bulletScore = normalizedBulletScore(bulletQualityAudit.bulletFeedback);
+  const resumeQualityScore = resume.rawText.trim() ? Math.round(atsCompatibilityScore * 0.4 + bulletScore * 0.6) : 0;
 
   const breakdown: ATSReportBreakdown = {
     requiredQualifications: requiredQualificationsScore,
@@ -155,13 +206,15 @@ export function generateATSReportSnapshot(
     experienceRelevance: expRes.experienceScore,
     educationMatch: eduRes.score,
     preferredQualifications: preferredQualificationsScore,
-    semanticAlignment: Math.round((requiredQualificationsScore + expRes.experienceScore) / 2),
+    semanticAlignment: Math.round(
+      (requiredQualificationsScore + expRes.experienceScore) / 2,
+    ),
     seniorityAlignment: expRes.seniorityAlignmentScore,
-    locationAlignment: 95,
+    locationAlignment: resume.location && jd.location ? (resume.location.toLowerCase().includes(jd.location.toLowerCase()) ? 100 : 0) : 0,
     keywordCoverage: keywordCoverageScore,
     atsParseability: atsCompatibilityScore,
     resumeStructure: sectionDetection,
-    contentImpactQuality: Math.round((bulletQualityAudit.strongCount / Math.max(1, bulletQualityAudit.totalBullets)) * 100),
+    contentImpactQuality: bulletScore,
   };
 
   // 10. "Why Did I Lose Points?" Deductions
@@ -172,7 +225,7 @@ export function generateATSReportSnapshot(
     bulletQualityAudit,
     titleAlignmentScore,
     hasTwoColumnLayout,
-    hasIcons
+    hasIcons,
   );
 
   // 11. Score Improvement Simulator & Truth Guard Items
@@ -180,17 +233,29 @@ export function generateATSReportSnapshot(
     jd,
     evidenceRes,
     bulletQualityAudit,
-    overallApplicationScore
+    overallApplicationScore,
+    resume,
+    simulate,
   );
 
   // Match Confidence & Label
-  const matchConfidenceScore = Math.round(
-    (resume.parseConfidence + (jd.requiredSkills.length > 0 ? 95 : 75)) / 2
+  const matchConfidenceScore = !resume.rawText.trim() ? 0 : Math.round(
+    (resume.parseConfidence +
+      (jd.requiredSkills.length > 0 || jd.preferredSkills.length > 0
+        ? 85
+        : 50)) /
+      2,
   );
-  const confidenceLevel = matchConfidenceScore >= 85 ? "HIGH" : matchConfidenceScore >= 65 ? "MEDIUM" : "LOW";
+  const confidenceLevel =
+    matchConfidenceScore >= 85
+      ? "HIGH"
+      : matchConfidenceScore >= 65
+        ? "MEDIUM"
+        : "LOW";
 
   let matchLabel: ATSReportSnapshot["matchLabel"] = "STRONG_MATCH";
-  if (criticalGaps.some((g) => g.severity === "CRITICAL")) matchLabel = "CRITICAL_GAPS";
+  if (criticalGaps.some((g) => g.severity === "CRITICAL"))
+    matchLabel = "CRITICAL_GAPS";
   else if (overallApplicationScore >= 90) matchLabel = "EXCELLENT_MATCH";
   else if (overallApplicationScore >= 80) matchLabel = "STRONG_MATCH";
   else if (overallApplicationScore >= 65) matchLabel = "MODERATE_MATCH";
@@ -200,11 +265,14 @@ export function generateATSReportSnapshot(
     jd,
     evidenceRes,
     criticalGaps,
-    bulletQualityAudit
+    bulletQualityAudit,
   );
 
   return {
     scanId,
+    assessmentStatus:"RULE_BASED",
+    unassessedDimensions:["layoutGeometry","semanticAlignment","locationAlignment",...(jd.minYearsExperience===0 ? ["experienceRelevance","seniorityAlignment"]:[]),...(!jd.educationRequirement?["educationMatch"]:[]),...(!jd.preferredSkills.length?["preferredQualifications"]:[])],
+    extractionPreview:{experiences:resume.experiences,education:resume.education,skills:resume.skills,sections:resume.sectionsDetected},
     atsCompatibilityScore,
     jobMatchScore,
     overallApplicationScore,
@@ -219,29 +287,43 @@ export function generateATSReportSnapshot(
     strengths: evidenceRes.strengths,
     gaps: evidenceRes.gaps,
     recommendations,
-    whyPointsLost,
+    whyPointsLost:whyPointsLost.map(item=>({...item,deduction:0})),
     scoreImprovementSimulator: simulator,
     truthGuardItems,
     bulletQualityAudit,
     keywordStuffingAudit,
     atsParseabilityAudit: {
-      textExtractable: true,
-      standardHeadings: true,
+      textExtractable: Boolean(resume.rawText.trim()),
+      standardHeadings: resume.sectionsDetected.some((section) =>
+        ["Experience", "Education", "Skills", "Projects", "Summary"].includes(
+          section,
+        ),
+      ),
       contactInfoDetected: contactDetected,
       datesDetected,
       skillsDetected: resume.skills.length > 0,
+      layoutAssessed: false,
       twoColumnLayoutDetected: hasTwoColumnLayout,
       iconsDetected: hasIcons,
-      warnings: criticalGaps.map((g) => g.title),
+      warnings: ["Column layout, visual reading order and icons were not assessed from extracted text.", ...criticalGaps.map((g) => g.title)],
     },
     parserMetadata: {
       parseConfidence: resume.parseConfidence,
       sectionsDetected: resume.sectionsDetected,
-      nonStandardHeadings: resume.sectionsDetected.filter((s) => !["Experience", "Education", "Skills", "Projects", "Summary"].includes(s)),
+      nonStandardHeadings: resume.sectionsDetected.filter(
+        (s) =>
+          ![
+            "Experience",
+            "Education",
+            "Skills",
+            "Projects",
+            "Summary",
+          ].includes(s),
+      ),
       dateConsistency: resume.dateConsistency,
     },
-    scoringEngineVersion: "2.1.0",
-    taxonomyVersion: "2.1.0",
+    scoringEngineVersion: "3.1.0",
+    taxonomyVersion: "3.0.0",
     targetJobTitle: jd.title,
     companyName: jd.companyName,
     jobDescriptionText: jd.rawText,
@@ -249,73 +331,44 @@ export function generateATSReportSnapshot(
   };
 }
 
+function skillMatchCredit(matchType: string): number {
+  if (
+    matchType === "EXACT" ||
+    matchType === "NORMALIZED" ||
+    matchType === "ALIAS"
+  ) {
+    return 1;
+  }
+  return matchType === "PARTIAL" ? 0.5 : 0;
+}
+
 function calculateTitleAlignment(resumeTitle: string, jdTitle: string): number {
-  if (!resumeTitle) return 70;
+  if (!resumeTitle) return 0;
   const rLower = resumeTitle.toLowerCase();
   const jLower = jdTitle.toLowerCase();
   if (rLower === jLower) return 100;
   if (rLower.includes(jLower) || jLower.includes(rLower)) return 88;
-  if ((rLower.includes("engineer") || rLower.includes("developer")) && (jLower.includes("engineer") || jLower.includes("developer"))) {
+  if (
+    (rLower.includes("engineer") || rLower.includes("developer")) &&
+    (jLower.includes("engineer") || jLower.includes("developer"))
+  ) {
     return 80;
   }
-  return 65;
+  return 0;
 }
 
 function analyzeBulletQuality(resume: UnifiedParsedResume): BulletQualityAudit {
-  const allBullets = resume.experiences
-    .flatMap((e) => e.bullets)
-    .concat(resume.projects.flatMap((p) => p.bullets));
-
-  const bulletFeedback: BulletQualityFeedback[] = [];
-  let weakCount = 0;
-  let betterCount = 0;
-  let strongCount = 0;
-
-  allBullets.forEach((bullet) => {
-    const hasMetric = /\d+(%|k|m|\+|\s*ms|\s*users|\s*x)/i.test(bullet);
-    const hasStrongVerb = /^(Architected|Engineered|Spearheaded|Optimized|Designed|Built|Implemented|Scaled|Developed|Automated)/i.test(bullet.trim());
-    const hasTechContext = /(using|with|via|leveraging|across)\s+[A-Za-z0-9#+.]+/i.test(bullet);
-
-    let score = 50;
-    if (hasStrongVerb) score += 20;
-    if (hasTechContext) score += 15;
-    if (hasMetric) score += 15;
-
-    let verdict: BulletQualityFeedback["verdict"] = "WEAK";
-    let suggestion = "";
-
-    if (score >= 85) {
-      verdict = "STRONG";
-      strongCount++;
-      suggestion = "Excellent bullet structure with clear action verb, tech context, and measurable outcome.";
-    } else if (score >= 65) {
-      verdict = "BETTER";
-      betterCount++;
-      suggestion = "Good bullet description. Consider adding a quantifiable metric (e.g. % efficiency or response time improvement).";
-    } else {
-      verdict = "WEAK";
-      weakCount++;
-      suggestion = "Weak bullet description. Start with a strong action verb (e.g. Developed, Optimized) and include technical scope & measurable outcome.";
-    }
-
-    bulletFeedback.push({
-      originalText: bullet,
-      score,
-      verdict,
-      suggestion,
-    });
-  });
-
-  return {
-    totalBullets: allBullets.length,
-    weakCount,
-    betterCount,
-    strongCount,
-    bulletFeedback,
-  };
+  const bulletFeedback:BulletQualityFeedback[] = [
+    ...resume.experiences.flatMap((e,itemIndex) => e.bullets.map((text,bulletIndex) => ({...assessBullet(text),source:{section:"experience" as const,itemIndex,bulletIndex}}))),
+    ...resume.projects.flatMap((p,itemIndex) => p.bullets.map((text,bulletIndex) => ({...assessBullet(text),source:{section:"projects" as const,itemIndex,bulletIndex}})))
+  ];
+  return {totalBullets:bulletFeedback.length,weakCount:bulletFeedback.filter(b=>b.verdict==="WEAK").length,betterCount:bulletFeedback.filter(b=>b.verdict==="BETTER").length,strongCount:bulletFeedback.filter(b=>b.verdict==="STRONG").length,bulletFeedback};
 }
 
-function analyzeKeywordStuffing(resume: UnifiedParsedResume, jd: StructuredJobDescription): KeywordStuffingAudit {
+function analyzeKeywordStuffing(
+  resume: UnifiedParsedResume,
+  jd: StructuredJobDescription,
+): KeywordStuffingAudit {
   const flaggedKeywords: KeywordStuffingAudit["flaggedKeywords"] = [];
   let stuffingCount = 0;
 
@@ -324,14 +377,18 @@ function analyzeKeywordStuffing(resume: UnifiedParsedResume, jd: StructuredJobDe
 
   allSkills.forEach((skill) => {
     const skillLower = skill.toLowerCase();
-    const matches = resumeText.match(new RegExp(`\\b${skillLower}\\b`, "g")) || [];
+    const matches =
+      resumeText.match(skillPattern(skillLower, "gi")) || [];
     const count = matches.length;
 
     if (count >= 5) {
       let contextualCount = 0;
-      resume.experiences.flatMap((e) => e.bullets).concat(resume.projects.flatMap((p) => p.bullets)).forEach((b) => {
-        if (b.toLowerCase().includes(skillLower)) contextualCount++;
-      });
+      resume.experiences
+        .flatMap((e) => e.bullets)
+        .concat(resume.projects.flatMap((p) => p.bullets))
+        .forEach((b) => {
+          if (b.toLowerCase().includes(skillLower)) contextualCount++;
+        });
 
       if (count > contextualCount + 3) {
         stuffingCount++;
@@ -345,7 +402,8 @@ function analyzeKeywordStuffing(resume: UnifiedParsedResume, jd: StructuredJobDe
   });
 
   return {
-    riskLevel: stuffingCount > 2 ? "HIGH" : stuffingCount > 0 ? "MODERATE" : "LOW",
+    riskLevel:
+      stuffingCount > 2 ? "HIGH" : stuffingCount > 0 ? "MODERATE" : "LOW",
     repetitionRatio: stuffingCount,
     flaggedKeywords,
   };
@@ -358,13 +416,13 @@ function calculateWhyPointsLost(
   bulletQuality: BulletQualityAudit,
   titleAlignment: number,
   hasTwoColumnLayout: boolean,
-  hasIcons: boolean
+  hasIcons: boolean,
 ): ScoreDeductionItem[] {
   const list: ScoreDeductionItem[] = [];
 
   // Missing Required Skills
   const missingReqs = evidenceRes.skillsTable.filter(
-    (s) => s.requirementType === "REQUIRED" && s.matchType === "NOT_FOUND"
+    (s) => s.requirementType === "REQUIRED" && s.matchType === "NOT_FOUND",
   );
   missingReqs.forEach((m) => {
     list.push({
@@ -377,7 +435,7 @@ function calculateWhyPointsLost(
 
   // Weak Skill Evidence (Listed in Skills section only)
   const weakEvidenceSkills = evidenceRes.skillsTable.filter(
-    (s) => s.evidenceLevel === "WEAK" && s.requirementType === "REQUIRED"
+    (s) => s.evidenceLevel === "WEAK" && s.requirementType === "REQUIRED",
   );
   weakEvidenceSkills.forEach((w) => {
     list.push({
@@ -413,7 +471,8 @@ function calculateWhyPointsLost(
     list.push({
       deduction: -3,
       title: "Two-Column Layout Parsing Risk",
-      reason: "Two-column PDF layouts may cause automated ATS parsers to misorder experience lines.",
+      reason:
+        "Two-column PDF layouts may cause automated ATS parsers to misorder experience lines.",
       category: "ATS_PARSING",
     });
   }
@@ -422,7 +481,8 @@ function calculateWhyPointsLost(
     list.push({
       deduction: -2,
       title: "Non-standard Icons Detected",
-      reason: "Icons near contact information or section headers can disrupt plain-text ATS parsers.",
+      reason:
+        "Icons near contact information or section headers can disrupt plain-text ATS parsers.",
       category: "ATS_PARSING",
     });
   }
@@ -444,7 +504,9 @@ function generateScoreSimulator(
   jd: StructuredJobDescription,
   evidenceRes: ReturnType<typeof extractEvidence>,
   bulletQuality: BulletQualityAudit,
-  currentScore: number
+  currentScore: number,
+  resume: UnifiedParsedResume,
+  simulate:boolean,
 ) {
   const improvements: ImprovementSimulatorItem[] = [];
   const truthGuardItems: TruthGuardItem[] = [];
@@ -452,11 +514,14 @@ function generateScoreSimulator(
 
   // 1. Missing Required Skills
   const missingReqs = evidenceRes.skillsTable.filter(
-    (s) => s.requirementType === "REQUIRED" && (s.matchType === "NOT_FOUND" || s.matchType === "RELATED")
+    (s) =>
+      s.requirementType === "REQUIRED" &&
+      (s.matchType === "NOT_FOUND" || s.matchType === "RELATED"),
   );
 
   missingReqs.forEach((m) => {
-    const points = 4;
+    const hypothetical={...resume,skills:[...resume.skills,m.skillName],rawText:resume.rawText+"\nSkills: "+m.skillName};
+    const points = simulate ? Math.max(0,generateATSReportSnapshot(hypothetical,jd,undefined,false).overallApplicationScore-currentScore):0;
     potentialGain += points;
     improvements.push({
       id: `imp-${m.skillName}`,
@@ -474,9 +539,11 @@ function generateScoreSimulator(
   });
 
   // 2. Upgrade Weak Skills
-  const weakSkills = evidenceRes.skillsTable.filter((s) => s.evidenceLevel === "WEAK" && s.requirementType === "REQUIRED");
+  const weakSkills = evidenceRes.skillsTable.filter(
+    (s) => s.evidenceLevel === "WEAK" && s.requirementType === "REQUIRED",
+  );
   if (weakSkills.length > 0) {
-    const points = 3;
+    const points = 0;
     potentialGain += points;
     improvements.push({
       id: "imp-weak-evidence",
@@ -490,18 +557,19 @@ function generateScoreSimulator(
 
   // 3. Improve Weak Bullets
   if (bulletQuality.weakCount > 0) {
-    const points = 3;
+    const points = 0;
     potentialGain += points;
     improvements.push({
       id: "imp-bullets",
-      title: `Add quantifiable metrics to ${Math.min(3, bulletQuality.weakCount)} weak experience bullets`,
+      title: `Review factual wording in ${Math.min(3, bulletQuality.weakCount)} weak experience bullets`,
       points,
       isTruthGuardRequired: false,
-      actionText: "Include measurable outcomes (e.g. 'reduced latency by 30%', 'served 10k users').",
+      actionText:
+        "Clarify your actual contribution and how you verified it. Add a metric only if you can substantiate it, then rescan.",
     });
   }
 
-  const potentialScore = Math.min(99, currentScore + potentialGain);
+  const potentialScore = Math.min(100,currentScore+Math.max(0,...improvements.map(i=>i.points)));
 
   return {
     simulator: {
@@ -517,27 +585,42 @@ function generateRecommendations(
   jd: StructuredJobDescription,
   evidenceRes: ReturnType<typeof extractEvidence>,
   criticalGaps: ReturnType<typeof evaluateCriticalGates>,
-  bulletQuality: BulletQualityAudit
+  bulletQuality: BulletQualityAudit,
 ): string[] {
   const recs: string[] = [];
 
   if (criticalGaps.length > 0) {
     criticalGaps.forEach((cg) => {
-      recs.push(`Priority Fix (${cg.severity}): ${cg.requiredDetail} ${cg.impactDescription}`);
+      recs.push(
+        `Priority Fix (${cg.severity}): ${cg.requiredDetail} ${cg.impactDescription}`,
+      );
     });
   }
 
-  const missingSkills = evidenceRes.skillsTable.filter((s) => s.requirementType === "REQUIRED" && s.matchType === "NOT_FOUND");
+  const missingSkills = evidenceRes.skillsTable.filter(
+    (s) => s.requirementType === "REQUIRED" && s.matchType === "NOT_FOUND",
+  );
   if (missingSkills.length > 0) {
-    recs.push(`Core Requirement Missing: The job requires ${missingSkills.slice(0, 3).map((s) => s.skillName).join(", ")}. If you genuinely possess hands-on experience, confirm possession and add verifiable evidence to your experience section.`);
+    recs.push(
+      `Core Requirement Missing: The job requires ${missingSkills
+        .slice(0, 3)
+        .map((s) => s.skillName)
+        .join(
+          ", ",
+        )}. If you genuinely possess hands-on experience, confirm possession and add verifiable evidence to your experience section.`,
+    );
   }
 
   if (bulletQuality.weakCount >= 2) {
-    recs.push(`Bullet Quality: ${bulletQuality.weakCount} experience bullets lack quantifiable impact or strong action verbs. Format bullets as: Action Verb + Tech Scope + Quantifiable Metric.`);
+    recs.push(
+      `Bullet Quality: ${bulletQuality.weakCount} project or experience bullets need clearer contributions, scope or checks. Explain actual work and how it was verified; add metrics only when supported.`,
+    );
   }
 
   if (recs.length === 0) {
-    recs.push("Your resume shows strong alignment with this position. Maintain standard section headings and ensure your contact details remain up to date.");
+    recs.push(
+      "Your resume shows strong alignment with this position. Maintain standard section headings and ensure your contact details remain up to date.",
+    );
   }
 
   return recs;

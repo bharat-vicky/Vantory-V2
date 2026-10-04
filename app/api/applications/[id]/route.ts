@@ -1,3 +1,4 @@
+import { apiError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/authorization";
 import { getApplicationDetails, withdrawApplication } from "@/lib/jobs/jobs-service";
@@ -24,8 +25,7 @@ export async function GET(
       application,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    return apiError(error);
   }
 }
 
@@ -62,7 +62,6 @@ export async function PATCH(
 
     return NextResponse.json({ success: false, error: "Invalid action." }, { status: 400 });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+    return apiError(error);
   }
 }

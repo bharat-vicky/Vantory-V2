@@ -132,78 +132,7 @@ export default function CompanyApplicationsPage() {
       }
     }
 
-    // Construct clean default ResumeData from candidate application profile
-    const skillsList = app.candidateSkills
-      ? app.candidateSkills.split(",").map((s) => s.trim()).filter(Boolean)
-      : ["JavaScript", "TypeScript", "React", "Node.js"];
-
-    return {
-      title: app.resume?.title || `${app.candidateName} Resume`,
-      personalInfo: {
-        fullName: app.candidateName || "Candidate",
-        headline: app.candidateHeadline || "Software Engineer",
-        email: app.candidateEmail || "",
-        phone: "+91 9876543210",
-        location: app.candidateLocation || "Remote",
-        linkedin: "",
-        github: "",
-        portfolio: "",
-        leetcode: "",
-      },
-      summary: `Dedicated ${app.candidateHeadline || "Software Engineer"} passionate about building scalable digital applications, high-performance web systems, and modern corporate software.`,
-      skills: [
-        {
-          id: "sk-1",
-          category: "Technical Skills",
-          skills: skillsList,
-        },
-      ],
-      experience: [
-        {
-          id: "exp-1",
-          role: app.candidateHeadline || "Software Engineer",
-          company: "Engineering Enterprise",
-          location: app.candidateLocation || "Remote",
-          startDate: "2022",
-          endDate: "Present",
-          isCurrent: true,
-          description: "Engineered high-concurrency systems, REST APIs, and responsive web applications.",
-          bullets: [
-            "Architected full-stack user interfaces and optimized backend query performance.",
-            "Collaborated with cross-functional product teams to deliver feature releases.",
-          ],
-        },
-      ],
-      education: [
-        {
-          id: "edu-1",
-          degree: "Bachelor of Technology in Computer Science",
-          institution: "Institute of Technology",
-          location: "India",
-          startDate: "2018",
-          endDate: "2022",
-        },
-      ],
-      projects: [],
-      certifications: [],
-      achievements: [],
-      settings: {
-        templateId: (app.resume?.templateId as "classic-monochrome" | "latex-classic" | "latex-minimal") || "classic-monochrome",
-        fontSize: "md",
-        margins: "normal",
-        sectionOrder: ["personal", "summary", "skills", "experience", "education"],
-        sectionVisibility: {
-          personal: true,
-          summary: true,
-          skills: true,
-          experience: true,
-          education: true,
-          projects: true,
-          certifications: true,
-          achievements: true,
-        },
-      },
-    };
+    return null;
   };
 
   const handleStatusChange = async (applicationId: string, newStatus: string) => {
@@ -431,7 +360,7 @@ export default function CompanyApplicationsPage() {
                     onClick={() => {
                       if (parsedData) {
                         setActiveResumePreviewData(parsedData);
-                        setActiveResumeId(app.resume?.id || null);
+                        setActiveResumeId(app.id);
                       }
                     }}
                     className="px-3.5 py-2 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-950 hover:bg-neutral-50 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -597,7 +526,7 @@ export default function CompanyApplicationsPage() {
                       <button
                         onClick={() => {
                           setActiveResumePreviewData(parsedData);
-                          setActiveResumeId(selectedApplication.resume?.id || null);
+                          setActiveResumeId(selectedApplication.id);
                         }}
                         className="px-4 py-2 bg-neutral-950 text-white font-bold text-xs rounded-xl hover:bg-neutral-800 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
                       >
@@ -607,7 +536,7 @@ export default function CompanyApplicationsPage() {
 
                       {selectedApplication.resume?.id && (
                         <a
-                          href={`/api/resumes/${selectedApplication.resume.id}/pdf`}
+                          href={`/api/applications/${selectedApplication.id}/resume`}
                           target="_blank"
                           rel="noreferrer"
                           className="px-4 py-2 bg-white border border-neutral-300 text-neutral-950 font-bold text-xs rounded-xl hover:bg-neutral-50 transition-all flex items-center gap-2 shadow-xs"
@@ -770,7 +699,7 @@ export default function CompanyApplicationsPage() {
 
               {activeResumeId && (
                 <a
-                  href={`/api/resumes/${activeResumeId}/pdf`}
+                  href={`/api/applications/${activeResumeId}/resume`}
                   target="_blank"
                   rel="noreferrer"
                   className="px-4 py-2 bg-neutral-950 text-white font-bold text-xs rounded-xl hover:bg-neutral-800 transition-all flex items-center gap-2 shadow-md"

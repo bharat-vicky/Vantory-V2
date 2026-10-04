@@ -141,7 +141,7 @@ export default function InstituteDashboardPage() {
             <Card className="border border-neutral-200/90 shadow-xs bg-white rounded-2xl p-5 hover:border-neutral-300 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono font-bold tracking-wider text-neutral-500 uppercase">
-                  PLACEMENT READY
+                  CHECKLIST COMPLETE
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -198,7 +198,7 @@ export default function InstituteDashboardPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-5">
               <div>
                 <h3 className="text-xl font-black tracking-tight text-neutral-950">
-                  Campus Placement Readiness Funnel
+                  Preparation Checklist Coverage
                 </h3>
                 <p className="text-xs text-neutral-500 mt-1">
                   Deterministic pipeline tracking student profile completion, ATS match capability, and mock interview scores.
@@ -235,7 +235,7 @@ export default function InstituteDashboardPage() {
               </div>
 
               <div className="p-4 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-1">
-                <div className="text-[10px] font-mono text-emerald-700 font-bold uppercase">PLACEMENT READY</div>
+                <div className="text-[10px] font-mono text-emerald-700 font-bold uppercase">CHECKLIST COMPLETE</div>
                 <div className="text-2xl font-black text-emerald-800">{data?.funnel?.placementReadyCount || 0}</div>
                 <div className="text-[10px] text-emerald-600 font-mono">All 4 Satisfied</div>
               </div>

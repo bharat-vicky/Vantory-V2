@@ -113,7 +113,7 @@ export class InterviewEngine {
       evaluation,
     };
 
-    const allEvaluated = [...allPreviousQuestions, evaluatedQuestion];
+    const allEvaluated = [...allPreviousQuestions.filter(q => q.id !== currentQuestion.id), evaluatedQuestion];
 
     // 2. Update Candidate Proficiency & Dynamic Difficulty
     const updatedGlobalProficiency = DifficultyController.calculateUpdatedProficiency(
@@ -143,7 +143,7 @@ export class InterviewEngine {
 
     // 3. Check Duration & Question Budget Limits
     const nextQuestionIndex = state.currentQuestionIndex + 1;
-    const isBudgetExhausted = nextQuestionIndex > state.totalQuestionsTarget;
+    const isBudgetExhausted = nextQuestionIndex > state.totalQuestionsTarget || state.elapsedSeconds >= config.durationMinutes * 60;
 
     if (isBudgetExhausted) {
       const updatedState: InterviewSessionState = {
@@ -196,7 +196,7 @@ export class InterviewEngine {
         interviewType: config.interviewType,
         difficulty: updatedDifficulty,
         interviewerStyle: config.interviewerStyle,
-        questionIndex: nextQuestionIndex,
+        questionIndex: nextQuestionIndex - 1,
         previousQuestions: allEvaluated.map((q) => q.questionText),
         previousAnswers: allEvaluated.map((q) => q.candidateAnswerText || ""),
         weakTopics: updatedWeakTopics,

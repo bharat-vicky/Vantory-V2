@@ -1,49 +1,7 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/authorization";
-import { toggleSaveJob } from "@/lib/jobs/jobs-service";
-
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const result = await toggleSaveJob(user.id, id);
-
-    return NextResponse.json({
-      success: true,
-      isSaved: result.isSaved,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const result = await toggleSaveJob(user.id, id);
-
-    return NextResponse.json({
-      success: true,
-      isSaved: result.isSaved,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
-  }
-}
+import { requireCandidate } from "@/lib/auth/authorization";
+import { setSavedJob } from "@/lib/jobs/jobs-service";
+import { apiError } from "@/lib/api-error";
+async function set(params:Promise<{id:string}>,saved:boolean){try{const u=await requireCandidate();return NextResponse.json({success:true,...await setSavedJob(u.id,(await params).id,saved)});}catch(e){return apiError(e);}}
+export async function POST(_r:Request,{params}:{params:Promise<{id:string}>}){return set(params,true);}
+export async function DELETE(_r:Request,{params}:{params:Promise<{id:string}>}){return set(params,false);}

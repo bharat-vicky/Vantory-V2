@@ -28,6 +28,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const [eligibilityText,setEligibilityText]=useState("");
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("Remote");
   const [workMode, setWorkMode] = useState("Remote");
@@ -96,6 +97,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
       return;
     }
 
+    let eligibility;try{eligibility=eligibilityText.trim()?JSON.parse(eligibilityText):undefined;}catch{setError("Eligibility must be valid JSON.");return;}
     setIsSubmitting(true);
     setError("");
 
@@ -104,6 +106,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          eligibility,
           title,
           location,
           workMode,
@@ -414,7 +417,8 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
               )}
             </button>
           </div>
-        </form>
+          <label className="block text-sm">Optional structured eligibility<textarea className="block w-full border p-3 rounded-xl" rows={3} value={eligibilityText} onChange={e=>setEligibilityText(e.target.value)} placeholder={'{"graduationYears":[2026,2027],"minCgpa":6,"maxBacklogs":0}'}/><span className="text-xs">Supported: graduationYears, courses, minCgpa, minPercentage, maxBacklogs. Leave blank if no fixed rules.</span></label>
+      </form>
       </div>
     </div>
   </div>,

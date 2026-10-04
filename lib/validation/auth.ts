@@ -1,5 +1,5 @@
 export interface RegisterInput {
-  role?: "CANDIDATE" | "COMPANY_ADMIN" | "INSTITUTE_ADMIN" | string;
+  role?: string;
   name?: string;
   companyName?: string;
   instituteName?: string;
@@ -10,15 +10,58 @@ export interface RegisterInput {
   confirmPassword?: string;
 }
 
+export type PublicRegistrationRole =
+  | "CANDIDATE"
+  | "COMPANY_ADMIN"
+  | "INSTITUTE_ADMIN";
+
+export function isPublicRegistrationRole(
+  role: string,
+): role is PublicRegistrationRole {
+  return ["CANDIDATE", "COMPANY_ADMIN", "INSTITUTE_ADMIN"].includes(role);
+}
+
+export function hasPortalAccess(
+  userRole: string,
+  portalRole: PublicRegistrationRole,
+): boolean {
+  return (
+    userRole === portalRole ||
+    (userRole === "SUPER_ADMIN" && portalRole !== "CANDIDATE")
+  );
+}
+
 export interface LoginInput {
   email?: string;
   password?: string;
   expectedRole?: string;
 }
 
+export const MAX_BCRYPT_PASSWORD_BYTES = 72;
+
+export function passwordByteLength(password: string): number {
+  return new TextEncoder().encode(password).length;
+}
+
 export interface ValidationResult {
   isValid: boolean;
   errors: Record<string, string>;
+}
+
+export function validatePasswordFields(
+  password?: string,
+  confirmPassword?: string,
+): ValidationResult {
+  const errors: Record<string, string> = {};
+  if (!password || password.length < 8) {
+    errors.password = "Password must be at least 8 characters long.";
+  } else if (passwordByteLength(password) > MAX_BCRYPT_PASSWORD_BYTES) {
+    errors.password = "Password must not exceed 72 UTF-8 bytes.";
+  }
+  if (password !== confirmPassword) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+  return { isValid: Object.keys(errors).length === 0, errors };
 }
 
 /**
@@ -34,6 +77,10 @@ export function normalizeEmail(email: string): string {
 export function validateRegistration(input: RegisterInput): ValidationResult {
   const errors: Record<string, string> = {};
   const targetRole = input.role || "CANDIDATE";
+
+  if (!isPublicRegistrationRole(targetRole)) {
+    errors.role = "This role cannot be selected during public registration.";
+  }
 
   if (targetRole === "COMPANY_ADMIN") {
     if (!input.companyName || input.companyName.trim().length < 2) {
@@ -56,13 +103,10 @@ export function validateRegistration(input: RegisterInput): ValidationResult {
     errors.email = "Please enter a valid email address.";
   }
 
-  if (!input.password || input.password.length < 8) {
-    errors.password = "Password must be at least 8 characters long.";
-  }
-
-  if (input.password !== input.confirmPassword) {
-    errors.confirmPassword = "Passwords do not match.";
-  }
+  Object.assign(
+    errors,
+    validatePasswordFields(input.password, input.confirmPassword).errors,
+  );
 
   return {
     isValid: Object.keys(errors).length === 0,
@@ -83,6 +127,8 @@ export function validateLogin(input: LoginInput): ValidationResult {
 
   if (!input.password) {
     errors.password = "Password is required.";
+  } else if (passwordByteLength(input.password) > MAX_BCRYPT_PASSWORD_BYTES) {
+    errors.password = "Password must not exceed 72 UTF-8 bytes.";
   }
 
   return {

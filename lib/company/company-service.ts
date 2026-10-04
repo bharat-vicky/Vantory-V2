@@ -1,7 +1,11 @@
+import { Eligibility,validateEligibility } from "@/lib/jobs/eligibility";
+import { readApplicationSnapshot } from "@/lib/jobs/snapshots";
 import { db } from "@/lib/db";
-import { ApplicationState } from "@prisma/client";
+import { ApplicationState, APPLICATION_TRANSITIONS, isApplicationState } from "@/lib/application-state";
+import { ApiError } from "@/lib/api-error";
 
 export interface CreateCompanyJobInput {
+  eligibility?:Eligibility;
   title: string;
   location: string;
   workMode?: string;
@@ -32,16 +36,7 @@ export interface UpdateCompanyJobInput extends Partial<CreateCompanyJobInput> {
 /**
  * Valid Status Transitions Matrix
  */
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  APPLIED: ["UNDER_REVIEW", "SHORTLISTED", "INTERVIEW", "SELECTED", "REJECTED"],
-  UNDER_REVIEW: ["SHORTLISTED", "INTERVIEW", "SELECTED", "REJECTED"],
-  SHORTLISTED: ["INTERVIEW", "SELECTED", "OFFERED", "REJECTED"],
-  INTERVIEW: ["SELECTED", "OFFERED", "REJECTED"],
-  SELECTED: ["OFFERED", "REJECTED"],
-  OFFERED: ["REJECTED"],
-  REJECTED: ["UNDER_REVIEW", "SHORTLISTED", "INTERVIEW", "SELECTED"],
-  WITHDRAWN: [],
-};
+const VALID_TRANSITIONS = APPLICATION_TRANSITIONS;
 
 /**
  * Helper to ensure CompanyProfile exists for the user
@@ -54,12 +49,13 @@ export async function getOrCreateCompanyProfile(companyUserId: string) {
 
   if (!user) throw new Error("Employer user account not found.");
 
+  if(!["COMPANY_ADMIN","SUPER_ADMIN"].includes(user.role))throw new ApiError("Employer access required.",403);
   if (!user.companyProfile) {
     const profile = await db.companyProfile.create({
       data: {
         userId: user.id,
-        companyName: user.name || "Verified Corporate Partner",
-        verificationStatus: "VERIFIED",
+        companyName: user.name || "Company",
+        verificationStatus: "PENDING",
       },
     });
     return { user, profile };
@@ -105,7 +101,7 @@ export async function updateCompanyProfile(
     establishedYear?: number;
     companySize?: string;
     isOnboarded?: boolean;
-  }
+  },
 ) {
   const { profile } = await getOrCreateCompanyProfile(companyUserId);
 
@@ -118,9 +114,15 @@ export async function updateCompanyProfile(
       description: input.description?.trim() ?? profile.description,
       industry: input.industry?.trim() ?? profile.industry,
       location: input.location?.trim() ?? profile.location,
-      establishedYear: typeof input.establishedYear === "number" ? input.establishedYear : profile.establishedYear,
+      establishedYear:
+        typeof input.establishedYear === "number"
+          ? input.establishedYear
+          : profile.establishedYear,
       companySize: input.companySize?.trim() ?? profile.companySize,
-      isOnboarded: typeof input.isOnboarded === "boolean" ? input.isOnboarded : profile.isOnboarded,
+      isOnboarded:
+        typeof input.isOnboarded === "boolean"
+          ? input.isOnboarded
+          : profile.isOnboarded,
     },
   });
 
@@ -173,9 +175,13 @@ export async function getCompanyDashboardStats(companyUserId: string) {
 
     totalApplications = applications.length;
     shortlistedCount = applications.filter(
-      (a) => a.status === ApplicationState.SHORTLISTED || a.status === ApplicationState.INTERVIEW
+      (a) =>
+        a.status === ApplicationState.SHORTLISTED ||
+        a.status === ApplicationState.INTERVIEW,
     ).length;
-    offersCount = applications.filter((a) => a.status === ApplicationState.OFFERED).length;
+    offersCount = applications.filter(
+      (a) => a.status === ApplicationState.OFFERED,
+    ).length;
   }
 
   return {
@@ -223,7 +229,10 @@ export async function getCompanyJobs(companyUserId: string) {
 /**
  * Create a new Job Posting server-side bound to Company
  */
-export async function createCompanyJob(companyUserId: string, input: CreateCompanyJobInput) {
+export async function createCompanyJob(
+  companyUserId: string,
+  input: CreateCompanyJobInput,
+) {
   // Validate Server-Side Ownership
   const { profile } = await getOrCreateCompanyProfile(companyUserId);
 
@@ -258,7 +267,12 @@ export async function createCompanyJob(companyUserId: string, input: CreateCompa
 
   let salaryString = input.salary || undefined;
   if (!salaryString && (input.salaryMin || input.salaryMax)) {
-    const periodStr = input.salaryPeriod === "month" ? "mo" : input.salaryPeriod === "hour" ? "hr" : "yr";
+    const periodStr =
+      input.salaryPeriod === "month"
+        ? "mo"
+        : input.salaryPeriod === "hour"
+          ? "hr"
+          : "yr";
     salaryString = `₹${input.salaryMin?.toLocaleString("en-IN") || "0"} - ₹${input.salaryMax?.toLocaleString("en-IN") || "0"}/${periodStr}`;
   }
 
@@ -283,11 +297,12 @@ export async function createCompanyJob(companyUserId: string, input: CreateCompa
       aboutCompany: input.aboutCompany?.trim() || profile.description || null,
       responsibilities: input.responsibilities?.trim() || null,
       requirements: input.requirements.trim(),
+      eligibilityJson:input.eligibility===undefined?undefined:JSON.stringify(validateEligibility(input.eligibility)),
       preferredRequirements: input.preferredRequirements?.trim() || null,
       skills: input.skills?.trim() || "",
       tags: input.tags?.trim() || "",
       status: "ACTIVE",
-      verificationStatus: profile.verificationStatus || "VERIFIED",
+      verificationStatus: profile.verificationStatus || "PENDING",
       hiringContact: profile.companyName,
       postedAt: new Date(),
       expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
@@ -312,7 +327,7 @@ export async function createCompanyJob(companyUserId: string, input: CreateCompa
 export async function updateCompanyJob(
   companyUserId: string,
   jobId: string,
-  input: UpdateCompanyJobInput
+  input: UpdateCompanyJobInput,
 ) {
   const existingJob = await db.jobPosting.findUnique({
     where: { id: jobId },
@@ -323,19 +338,36 @@ export async function updateCompanyJob(
     throw new Error("Unauthorized. You do not own this job posting.");
   }
 
-  const expMin = typeof input.experienceMin === "number" ? input.experienceMin : existingJob.experienceMin;
-  const expMax = typeof input.experienceMax === "number" ? input.experienceMax : existingJob.experienceMax;
+  const expMin =
+    typeof input.experienceMin === "number"
+      ? input.experienceMin
+      : existingJob.experienceMin;
+  const expMax =
+    typeof input.experienceMax === "number"
+      ? input.experienceMax
+      : existingJob.experienceMax;
   const expString = input.experience || `${expMin}-${expMax} Years`;
 
   let salaryString = input.salary || undefined;
-  if (!salaryString && (typeof input.salaryMin === "number" || typeof input.salaryMax === "number")) {
-    const periodStr = (input.salaryPeriod || existingJob.salaryPeriod) === "month" ? "mo" : (input.salaryPeriod || existingJob.salaryPeriod) === "hour" ? "hr" : "yr";
+  if (
+    !salaryString &&
+    (typeof input.salaryMin === "number" || typeof input.salaryMax === "number")
+  ) {
+    const periodStr =
+      (input.salaryPeriod || existingJob.salaryPeriod) === "month"
+        ? "mo"
+        : (input.salaryPeriod || existingJob.salaryPeriod) === "hour"
+          ? "hr"
+          : "yr";
     const sMin = input.salaryMin ?? existingJob.salaryMin ?? 0;
     const sMax = input.salaryMax ?? existingJob.salaryMax ?? 0;
     salaryString = `₹${sMin.toLocaleString("en-IN")} - ₹${sMax.toLocaleString("en-IN")}/${periodStr}`;
   }
 
-  const newStatus = input.republish ? "ACTIVE" : input.status || existingJob.status;
+  const newStatus = input.republish
+    ? "ACTIVE"
+    : input.status || existingJob.status;
+  if(!["ACTIVE","PAUSED","CLOSED","DRAFT"].includes(newStatus))throw new ApiError("Unsupported job status.");
   const updateData: Record<string, unknown> = {
     title: input.title?.trim() || existingJob.title,
     location: input.location?.trim() || existingJob.location,
@@ -350,12 +382,18 @@ export async function updateCompanyJob(
     salary: salaryString || existingJob.salary,
     description: input.description?.trim() || existingJob.description,
     aboutCompany: input.aboutCompany?.trim() ?? existingJob.aboutCompany,
-    companyUrl: input.companyUrl !== undefined ? (input.companyUrl?.trim() || null) : existingJob.companyUrl,
-    responsibilities: input.responsibilities?.trim() ?? existingJob.responsibilities,
+    companyUrl:
+      input.companyUrl !== undefined
+        ? input.companyUrl?.trim() || null
+        : existingJob.companyUrl,
+    responsibilities:
+      input.responsibilities?.trim() ?? existingJob.responsibilities,
     requirements: input.requirements?.trim() || existingJob.requirements,
-    preferredRequirements: input.preferredRequirements?.trim() ?? existingJob.preferredRequirements,
+    preferredRequirements:
+      input.preferredRequirements?.trim() ?? existingJob.preferredRequirements,
     skills: input.skills?.trim() ?? existingJob.skills,
     status: newStatus,
+    eligibilityJson:input.eligibility===undefined ? existingJob.eligibilityJson:JSON.stringify(validateEligibility(input.eligibility)),
   };
 
   if (input.republish) {
@@ -409,7 +447,11 @@ export async function deleteCompanyJob(companyUserId: string, jobId: string) {
       },
     });
 
-    return { success: true, action: "CLOSED", message: "Job closed to preserve historical candidate applications." };
+    return {
+      success: true,
+      action: "CLOSED",
+      message: "Job closed to preserve historical candidate applications.",
+    };
   } else {
     // No applications: safe hard delete
     await db.jobPosting.delete({ where: { id: jobId } });
@@ -423,7 +465,11 @@ export async function deleteCompanyJob(companyUserId: string, jobId: string) {
       },
     });
 
-    return { success: true, action: "DELETED", message: "Job posting deleted successfully." };
+    return {
+      success: true,
+      action: "DELETED",
+      message: "Job posting deleted successfully.",
+    };
   }
 }
 
@@ -432,7 +478,7 @@ export async function deleteCompanyJob(companyUserId: string, jobId: string) {
  */
 export async function getCompanyApplications(
   companyUserId: string,
-  filters?: { jobId?: string; status?: string; search?: string }
+  filters?: { jobId?: string; status?: string; search?: string },
 ) {
   const companyJobs = await db.jobPosting.findMany({
     where: { companyUserId },
@@ -447,6 +493,7 @@ export async function getCompanyApplications(
   };
 
   if (filters?.jobId && filters.jobId !== "ALL") {
+    if (!jobIds.includes(filters.jobId)) return [];
     where.jobId = filters.jobId;
   }
 
@@ -496,17 +543,18 @@ export async function getCompanyApplications(
     },
   });
 
+  let filteredApplications = applications;
   if (filters?.search && filters.search.trim()) {
     const q = filters.search.trim().toLowerCase();
-    return applications.filter(
+    filteredApplications = applications.filter(
       (app) =>
         app.user.name.toLowerCase().includes(q) ||
         app.user.email.toLowerCase().includes(q) ||
-        app.job.title.toLowerCase().includes(q)
+        app.job.title.toLowerCase().includes(q),
     );
   }
 
-  return applications.map((app) => ({
+  return filteredApplications.map((app) => ({
     id: app.id,
     jobId: app.jobId,
     jobTitle: app.job.title,
@@ -522,15 +570,8 @@ export async function getCompanyApplications(
     updatedAt: app.updatedAt.toISOString(),
     coverNote: app.coverNote,
     employerNotes: app.notes,
-    resume: app.resume
-      ? {
-          id: app.resume.id,
-          title: app.resume.title,
-          templateId: app.resume.templateId,
-          contentJson: app.resume.contentJson,
-          updatedAt: app.resume.updatedAt.toISOString(),
-        }
-      : null,
+    resume: readApplicationSnapshot(app).resume,
+    snapshotAvailable:Boolean(app.resumeSnapshotJson),
   }));
 }
 
@@ -541,7 +582,7 @@ export async function updateApplicationStatusByCompany(
   companyUserId: string,
   applicationId: string,
   newStatus: ApplicationState | string,
-  employerNote?: string
+  employerNote?: string,
 ) {
   const application = await db.jobApplication.findUnique({
     where: { id: applicationId },
@@ -550,17 +591,21 @@ export async function updateApplicationStatusByCompany(
 
   if (!application) throw new Error("Application not found.");
   if (application.job.companyUserId !== companyUserId) {
-    throw new Error("Unauthorized. This application belongs to another employer.");
+    throw new Error(
+      "Unauthorized. This application belongs to another employer.",
+    );
   }
 
   const currentStatus = application.status;
+  if (!isApplicationState(newStatus)) throw new ApiError("Unsupported application status.");
+  if (currentStatus === newStatus && !employerNote) return application;
 
   // Validate status transition matrix
   if (currentStatus !== newStatus) {
     const allowed = VALID_TRANSITIONS[currentStatus] || [];
     if (!allowed.includes(newStatus)) {
       throw new Error(
-        `Invalid status transition from ${currentStatus} to ${newStatus}. Allowed transitions: ${allowed.join(", ") || "None"}.`
+        `Invalid status transition from ${currentStatus} to ${newStatus}. Allowed transitions: ${allowed.join(", ") || "None"}.`,
       );
     }
   }
@@ -581,7 +626,8 @@ export async function updateApplicationStatusByCompany(
   else if (statusStr === "INTERVIEW") timelineTitle = "Interview Scheduled";
   else if (statusStr === "SELECTED") timelineTitle = "Candidate Selected";
   else if (statusStr === "OFFERED") timelineTitle = "Offer Extended";
-  else if (statusStr === "REJECTED") timelineTitle = "Application Status Updated";
+  else if (statusStr === "REJECTED")
+    timelineTitle = "Application Status Updated";
 
   timeline.push({
     status: newStatus,
@@ -590,14 +636,13 @@ export async function updateApplicationStatusByCompany(
     note: `Updated by ${application.job.company} hiring team.`,
   });
 
-  const updated = await db.jobApplication.update({
-    where: { id: applicationId },
-    data: {
-      status: newStatus as ApplicationState,
-      timelineJson: JSON.stringify(timeline),
-      notes: employerNote ? employerNote.trim() : application.notes,
-    },
+  const changed = await db.jobApplication.updateMany({
+    where: { id: applicationId, status: currentStatus, updatedAt: application.updatedAt },
+    data: { status: newStatus, timelineJson: JSON.stringify(timeline), notes: employerNote?.trim().slice(0, 2000) || application.notes },
   });
+  if (changed.count !== 1) throw new ApiError("This application changed. Refresh before updating it.", 409, "CONFLICT");
+  const updated = await db.jobApplication.findUnique({ where: { id: applicationId } });
+  if (!updated) throw new ApiError("Application no longer available.", 404);
 
   await db.activityLog.create({
     data: {

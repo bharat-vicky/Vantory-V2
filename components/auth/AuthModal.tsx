@@ -61,8 +61,10 @@ export function AuthModal({
   };
 
   const getRoleTagline = () => {
-    if (role === "company") return "Post jobs, search candidates & manage placements.";
-    if (role === "institute") return "Track student readiness, placement drives & analytics.";
+    if (role === "company")
+      return "Post jobs, search candidates & manage placements.";
+    if (role === "institute")
+      return "Track student readiness, placement drives & analytics.";
     return "Build resumes, evaluate ATS scores & practice AI interviews.";
   };
 
@@ -90,7 +92,7 @@ export function AuthModal({
               exit={{ opacity: 0, scale: 0.96, y: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
               className={cn(
-                "relative w-full max-w-lg bg-white border border-neutral-200 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 z-10 text-neutral-950"
+                "relative w-full max-w-lg bg-white border border-neutral-200 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 z-10 text-neutral-950",
               )}
             >
               {/* Close Button */}
@@ -107,7 +109,10 @@ export function AuthModal({
                 <div className="w-10 h-10 rounded-xl bg-neutral-950 text-white font-black flex items-center justify-center text-base tracking-tighter mb-2 shadow-md">
                   SA
                 </div>
-                <h3 id={titleId} className="text-xl font-extrabold tracking-tight text-neutral-950">
+                <h3
+                  id={titleId}
+                  className="text-xl font-extrabold tracking-tight text-neutral-950"
+                >
                   {getRoleTitle()}
                 </h3>
                 <p className="text-xs text-neutral-500 font-medium mt-0.5 max-w-xs">
@@ -116,7 +121,11 @@ export function AuthModal({
               </div>
 
               {/* Role Switcher */}
-              <RoleSelector selectedRole={role} onChange={setRole} className="mb-5" />
+              <RoleSelector
+                selectedRole={role}
+                onChange={setRole}
+                className="mb-5"
+              />
 
               {/* Mode Switcher */}
               <AuthTabs mode={mode} onChange={setMode} className="mb-6" />
@@ -132,7 +141,15 @@ export function AuthModal({
                 >
                   {mode === "login" ? (
                     <LoginForm
-                      roleLabel={role === "company" ? "Company" : role === "institute" ? "Institute" : "Candidate"}
+                      roleLabel={
+                        role === "company"
+                          ? "Company"
+                          : role === "institute"
+                            ? "Institute"
+                            : "Candidate"
+                      }
+                      initialRole={role}
+                      hideRoleSelector
                       onSwitchToSignup={() => setMode("signup")}
                       onSuccess={onSuccess}
                     />
@@ -158,7 +175,9 @@ export function AuthModal({
               {/* Security Notice */}
               <div className="mt-6 pt-4 border-t border-neutral-100 text-center text-[11px] text-neutral-400 font-mono flex items-center justify-center gap-1.5 select-none">
                 <ShieldCheck className="w-3.5 h-3.5 text-neutral-700" />
-                <span>◉ Secure & Encrypted • Account information protected</span>
+                <span>
+                  ◉ Secure & Encrypted • Account information protected
+                </span>
               </div>
             </motion.div>
           </div>

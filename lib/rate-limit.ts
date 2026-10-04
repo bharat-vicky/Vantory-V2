@@ -10,16 +10,30 @@ const rateLimitStore = new Map<string, RateLimitRecord>();
 
 // Clean up stale rate limit entries every 5 minutes
 if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    const expiryWindow = 15 * 60 * 1000;
-    for (const [key, record] of rateLimitStore.entries()) {
-      record.timestamps = record.timestamps.filter((ts) => now - ts < expiryWindow);
-      if (record.timestamps.length === 0) {
-        rateLimitStore.delete(key);
+  const cleanupTimer = setInterval(
+    () => {
+      const now = Date.now();
+      const expiryWindow = 15 * 60 * 1000;
+      for (const [key, record] of rateLimitStore.entries()) {
+        record.timestamps = record.timestamps.filter(
+          (ts) => now - ts < expiryWindow,
+        );
+        if (record.timestamps.length === 0) {
+          rateLimitStore.delete(key);
+        }
       }
-    }
-  }, 5 * 60 * 1000);
+    },
+    5 * 60 * 1000,
+  );
+
+  if (
+    typeof cleanupTimer === "object" &&
+    cleanupTimer !== null &&
+    "unref" in cleanupTimer &&
+    typeof cleanupTimer.unref === "function"
+  ) {
+    cleanupTimer.unref();
+  }
 }
 
 export interface RateLimitResult {
@@ -37,7 +51,7 @@ export interface RateLimitResult {
 export function checkRateLimit(
   identifier: string,
   limit: number = 10,
-  windowMs: number = 15 * 60 * 1000
+  windowMs: number = 15 * 60 * 1000,
 ): RateLimitResult {
   const now = Date.now();
   const record = rateLimitStore.get(identifier) || { timestamps: [] };

@@ -3,7 +3,9 @@ import { ResumeData, defaultResumeSettings, emptyResumeData } from "./types";
 /**
  * Safely parses stringified JSON content into structured ResumeData with fallback defaults.
  */
-export function parseResumeContent(jsonString: string | null | undefined): ResumeData {
+export function parseResumeContent(
+  jsonString: string | null | undefined,
+): ResumeData {
   if (!jsonString) return emptyResumeData;
 
   try {
@@ -12,7 +14,7 @@ export function parseResumeContent(jsonString: string | null | undefined): Resum
       title: parsed.title || "Candidate Resume",
       personalInfo: {
         fullName: parsed.personalInfo?.fullName ?? "",
-        headline: parsed.personalInfo?.headline ?? "Software Engineer",
+        headline: parsed.personalInfo?.headline ?? "",
         email: parsed.personalInfo?.email ?? "",
         phone: parsed.personalInfo?.phone ?? "",
         location: parsed.personalInfo?.location ?? "",
@@ -34,8 +36,32 @@ export function parseResumeContent(jsonString: string | null | undefined): Resum
       experience: Array.isArray(parsed.experience) ? parsed.experience : [],
       education: Array.isArray(parsed.education) ? parsed.education : [],
       projects: Array.isArray(parsed.projects) ? parsed.projects : [],
-      certifications: Array.isArray(parsed.certifications) ? parsed.certifications : [],
-      achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+      certifications: Array.isArray(parsed.certifications)
+        ? parsed.certifications.map(
+            (certification: ResumeData["certifications"][number]) => ({
+              ...certification,
+              credentialUrl:
+                typeof certification.credentialUrl === "string" &&
+                certification.credentialUrl.startsWith("data:")
+                  ? undefined
+                  : certification.credentialUrl,
+              pdfFileName: undefined,
+            }),
+          )
+        : [],
+      achievements: Array.isArray(parsed.achievements)
+        ? parsed.achievements.map(
+            (achievement: ResumeData["achievements"][number]) => ({
+              ...achievement,
+              proofUrl:
+                typeof achievement.proofUrl === "string" &&
+                achievement.proofUrl.startsWith("data:")
+                  ? undefined
+                  : achievement.proofUrl,
+              pdfFileName: undefined,
+            }),
+          )
+        : [],
     };
   } catch {
     return emptyResumeData;

@@ -6,13 +6,21 @@ import { ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordField } from "./PasswordField";
+import { GoogleAuthButton } from "./GoogleAuthButton";
+import {
+  passwordByteLength,
+  MAX_BCRYPT_PASSWORD_BYTES,
+} from "@/lib/validation/auth";
 
 export interface CandidateRegisterFormProps {
   onSwitchToLogin?: () => void;
   onSuccess?: (redirectUrl: string) => void;
 }
 
-export function CandidateRegisterForm({ onSwitchToLogin, onSuccess }: CandidateRegisterFormProps) {
+export function CandidateRegisterForm({
+  onSwitchToLogin,
+  onSuccess,
+}: CandidateRegisterFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,10 +30,12 @@ export function CandidateRegisterForm({ onSwitchToLogin, onSuccess }: CandidateR
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -34,6 +44,10 @@ export function CandidateRegisterForm({ onSwitchToLogin, onSuccess }: CandidateR
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
+      return;
+    }
+    if (passwordByteLength(password) > MAX_BCRYPT_PASSWORD_BYTES) {
+      setError("Password must not exceed 72 UTF-8 bytes.");
       return;
     }
 
@@ -60,6 +74,13 @@ export function CandidateRegisterForm({ onSwitchToLogin, onSuccess }: CandidateR
         throw new Error(data.error || "Registration failed.");
       }
 
+      if (data.verificationRequired) {
+        setNotice(
+          "Account created. Check your inbox for a link to verify your email before signing in.",
+        );
+        return;
+      }
+
       const dest = data.user?.redirectUrl || "/dashboard";
       if (onSuccess) {
         onSuccess(dest);
@@ -76,6 +97,14 @@ export function CandidateRegisterForm({ onSwitchToLogin, onSuccess }: CandidateR
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3.5">
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+        >
+          {notice}
+        </p>
+      )}
       {error && (
         <div className="bg-neutral-50 border border-neutral-950 text-neutral-950 p-3 rounded-xl text-xs flex items-center gap-2.5 font-medium animate-in fade-in">
           <AlertCircle className="w-4 h-4 shrink-0 text-neutral-900" />
@@ -148,6 +177,8 @@ export function CandidateRegisterForm({ onSwitchToLogin, onSuccess }: CandidateR
       >
         Sign Up as Candidate
       </Button>
+
+      <GoogleAuthButton role="candidate" isSignup />
 
       {onSwitchToLogin && (
         <p className="text-center text-xs text-neutral-500 pt-1">

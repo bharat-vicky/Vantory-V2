@@ -2,7 +2,12 @@
  * Core Data Structures for Vantory AI Resume ATS & Job Match Analysis Engine (v2.1)
  */
 
-export type RequirementType = "REQUIRED" | "PREFERRED" | "RESPONSIBILITY" | "CONTEXT" | "UNKNOWN";
+export type RequirementType =
+  | "REQUIRED"
+  | "PREFERRED"
+  | "RESPONSIBILITY"
+  | "CONTEXT"
+  | "UNKNOWN";
 export type RequirementImportance = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
 export type SkillMatchType =
@@ -27,6 +32,7 @@ export type RequirementStatus =
   | "CONTRADICTED";
 
 export type SeniorityLevel =
+  | "UNKNOWN"
   | "STUDENT"
   | "ENTRY_LEVEL"
   | "JUNIOR"
@@ -121,6 +127,9 @@ export interface TruthGuardItem {
 }
 
 export interface BulletQualityFeedback {
+  criteria?: import("@/lib/resume/bullet-feedback").BulletCriteria;
+  issues?: string[];
+  source?: {section:"experience"|"projects";itemIndex:number;bulletIndex:number};
   originalText: string;
   score: number; // 0-100
   verdict: "STRONG" | "BETTER" | "WEAK";
@@ -138,7 +147,11 @@ export interface BulletQualityAudit {
 export interface KeywordStuffingAudit {
   riskLevel: "LOW" | "MODERATE" | "HIGH";
   repetitionRatio: number;
-  flaggedKeywords: { keyword: string; count: number; contextualEvidenceCount: number }[];
+  flaggedKeywords: {
+    keyword: string;
+    count: number;
+    contextualEvidenceCount: number;
+  }[];
 }
 
 export interface ATSReportBreakdown {
@@ -157,6 +170,11 @@ export interface ATSReportBreakdown {
 }
 
 export interface ATSReportSnapshot {
+  resumeId?: string;
+  resumeRevision?: string;
+  assessmentStatus?: "RULE_BASED" | "HISTORICAL_UNVALIDATED";
+  unassessedDimensions?: string[];
+  extractionPreview?: {experiences:unknown[];education:unknown[];skills:string[];sections:string[]};
   scanId?: string;
   atsCompatibilityScore: number; // 0-100 "ATS Compatibility Score"
   jobMatchScore: number; // 0-100 "Job Match Score"
@@ -164,7 +182,12 @@ export interface ATSReportSnapshot {
   resumeQualityScore: number; // 0-100
   matchConfidenceScore: number; // 0-100
   confidenceLevel: "HIGH" | "MEDIUM" | "LOW";
-  matchLabel: "EXCELLENT_MATCH" | "STRONG_MATCH" | "MODERATE_MATCH" | "WEAK_MATCH" | "CRITICAL_GAPS";
+  matchLabel:
+    | "EXCELLENT_MATCH"
+    | "STRONG_MATCH"
+    | "MODERATE_MATCH"
+    | "WEAK_MATCH"
+    | "CRITICAL_GAPS";
   breakdown: ATSReportBreakdown;
   skillsTable: MatchedSkillEvidence[];
   requirementsTable: MatchedRequirementEvidence[];
@@ -182,6 +205,7 @@ export interface ATSReportSnapshot {
   bulletQualityAudit: BulletQualityAudit;
   keywordStuffingAudit: KeywordStuffingAudit;
   atsParseabilityAudit: {
+    layoutAssessed?: boolean;
     textExtractable: boolean;
     standardHeadings: boolean;
     contactInfoDetected: boolean;

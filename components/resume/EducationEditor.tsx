@@ -15,12 +15,12 @@ export function EducationEditor({ items, onChange }: EducationEditorProps) {
   const addItem = () => {
     const newItem: ResumeEducationItem = {
       id: `edu-${Date.now()}`,
-      degree: "Bachelor of Technology (B.Tech)",
-      institution: "Stanford University",
-      location: "Stanford, CA",
-      startDate: "2022",
-      endDate: "Expected 2026",
-      grade: "3.9 CGPA",
+      degree: "",
+      institution: "",
+      location: "",
+      startDate: "",
+      endDate: "",
+      grade: "",
     };
     onChange([...items, newItem]);
   };
@@ -29,16 +29,25 @@ export function EducationEditor({ items, onChange }: EducationEditorProps) {
     onChange(items.filter((i) => i.id !== id));
   };
 
-  const updateItem = (id: string, field: keyof ResumeEducationItem, value: string) => {
+  const updateItem = (
+    id: string,
+    field: keyof ResumeEducationItem,
+    value: string,
+  ) => {
     onChange(
-      items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+      items.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item,
+      ),
     );
   };
 
   return (
     <div className="space-y-4">
       {items.map((item, idx) => (
-        <div key={item.id || idx} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3">
+        <div
+          key={item.id || idx}
+          className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3"
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 font-bold text-xs text-neutral-900">
               <GraduationCap className="w-3.5 h-3.5 text-neutral-600" />
@@ -66,7 +75,9 @@ export function EducationEditor({ items, onChange }: EducationEditorProps) {
               label="Institution / University"
               placeholder="Stanford University"
               value={item.institution}
-              onChange={(e) => updateItem(item.id, "institution", e.target.value)}
+              onChange={(e) =>
+                updateItem(item.id, "institution", e.target.value)
+              }
               className="bg-white text-xs h-9"
             />
           </div>

@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { enhanceResumeText } from "../lib/ai/gemini";
 import { checkRateLimit } from "../lib/rate-limit";
+import { preservesResumeFacts } from "../lib/ai/factual-rewrite";
+
+test("Resume rewrites cannot invent leadership, outcomes, quality or metrics",()=>{
+ assert.equal(preservesResumeFacts("Built Python applications", "Led Python applications"),false);
+ assert.equal(preservesResumeFacts("Built Python applications", "Built efficient Python applications"),false);
+ assert.equal(preservesResumeFacts("Built Python applications", "Improved Python applications by 40%"),false);
+ assert.equal(preservesResumeFacts("Built Python applications", "Developed Python applications"),true);
+});
 
 test("Gemini AI Resume Refiner - Sanitizes Input & Rejects Blank Input", async () => {
   const result = await enhanceResumeText({ selectedText: "   " });

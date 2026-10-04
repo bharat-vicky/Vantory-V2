@@ -1,144 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { db } from "../lib/db";
-import {
-  getFilteredJobs,
-  getJobById,
-  toggleSaveJob,
-  getSavedJobs,
-  applyToJob,
-  getCandidateApplications,
-  withdrawApplication,
-} from "../lib/jobs/jobs-service";
+import {annualSalary,discoveryPipeline} from "../lib/jobs/discovery";
+import {readApplicationSnapshot} from "../lib/jobs/snapshots";
+import {setSavedJob,applyToJob} from "../lib/jobs/jobs-service";
+import {jobPreparationDescription} from "../lib/jobs/context";
+import {parseJobDescription} from "../lib/ats/parser/job-parser";
+import {Prisma} from "@prisma/client";
+import {checkEligibility,validateEligibility} from "../lib/jobs/eligibility";
+import {defaultCareer} from "../lib/candidate/profile";
+import {db} from "../lib/db";
+import {stubMethod} from "./fixtures";
+test("Discovery normalizes pay periods and leaves unknown periods incomparable",()=>{assert.equal(annualSalary(25000,"month"),300000);assert.equal(annualSalary(300000,"year"),300000);assert.equal(annualSalary(500,"hour"),null);});
+test("Discovery escapes regex input, keeps availability constraints and validates pagination",()=>{const p=discoveryPipeline({query:"C++ (test)",sortBy:"relevance",salaryRange:"25k-50k"},["SQL"]);const json=JSON.stringify(p.pipeline);assert.match(json,/expiresAt/);assert.match(json,/VERIFIED/);assert.equal((p.pipeline[0] as any).$match.$and[1].$or[0].title.$regex,"C\\+\\+ \\(test\\)");assert.match(json,/annualMax/);assert.match(json,/relevance/);assert.throws(()=>discoveryPipeline({page:NaN}),/pagination/);});
+test("Saved job DELETE is idempotent and never creates a record",async()=>{let deletes=0;const restore=stubMethod(db.savedJob,"deleteMany",async()=>{deletes++;return {count:0};});try{const id="111111111111111111111111";assert.deepEqual(await setSavedJob("owner",id,false),{isSaved:false});assert.deepEqual(await setSavedJob("owner",id,false),{isSaved:false});assert.equal(deletes,2);}finally{restore();}});
+test("Submitted resume snapshot stays fixed and historical missing snapshots remain unavailable",()=>{const submitted={id:"r",title:"Original",templateId:"classic",contentJson:'{"summary":"Original"}',updatedAt:"2026-01-01"};const app={job:{title:"Current job"},resume:{title:"Edited"},resumeSnapshotJson:JSON.stringify(submitted),jobSnapshotJson:JSON.stringify({title:"Original job"})};const read=readApplicationSnapshot(app);assert.equal(read.resume?.title,"Original");assert.equal(read.job.title,"Original job");assert.equal(readApplicationSnapshot({...app,resumeSnapshotJson:null}).resume,null);});
+test("Missing academic evidence is unknown, not an invented eligibility pass",()=>{const c=validateEligibility({graduationYears:[2027],minCgpa:6,maxBacklogs:0});assert.equal(checkEligibility(c,null,defaultCareer).status,"UNKNOWN");assert.equal(checkEligibility(c,{graduationYear:2027,course:"BTech"},{...defaultCareer,cgpa:7,activeBacklogs:0}).status,"MET");assert.equal(checkEligibility(c,{graduationYear:2026,course:"BTech"},{...defaultCareer,cgpa:7,activeBacklogs:0}).status,"NOT_MET");assert.throws(()=>validateEligibility({minCgpa:11}));});
 
-test("Jobs & Careers - Search & Multi-Facet Filtering with Real Job", async () => {
-  // Create a temporary test job
-  const testJob = await db.jobPosting.create({
-    data: {
-      title: "Backend Engineer Test Role",
-      company: "TestCompany",
-      location: "Bengaluru, India",
-      workMode: "Remote",
-      type: "Full-time",
-      experienceMin: 1,
-      experienceMax: 3,
-      experience: "1-3 Years",
-      salary: "₹10.0 LPA",
-      description: "Test role description for backend engineer",
-      requirements: "Python, FastAPI",
-      skills: "Python, FastAPI",
-      status: "ACTIVE",
-      verificationStatus: "VERIFIED",
-    },
-  });
-
-  try {
-    // Test Search Query
-    const searchResult = await getFilteredJobs({ query: "Backend Engineer Test Role" });
-    assert.equal(typeof searchResult.activeOpeningsCount, "number");
-    assert.equal(searchResult.jobs.length >= 1, true);
-
-    // Test Filter by Job Type (Full-time)
-    const ftResult = await getFilteredJobs({ jobType: "Full-time" });
-    assert.equal(
-      ftResult.jobs.every((j) => j.type === "Full-time"),
-      true
-    );
-
-    // Fetch by ID
-    const fetched = await getJobById(testJob.id);
-    assert.equal(fetched?.title, testJob.title);
-    assert.equal(fetched?.company, testJob.company);
-  } finally {
-    // Clean up
-    await db.jobPosting.delete({ where: { id: testJob.id } });
-  }
+test("Job preparation shares required and preferred qualifications without promoting preferred skills",()=>{
+ const text=jobPreparationDescription({description:"Junior analyst",requirements:"SQL and Excel",preferredRequirements:"Python",skills:"SQL, Excel, Python"});
+ const parsed=parseJobDescription(text);
+ assert.ok(parsed.requiredSkills.includes("SQL"));
+ assert.ok(parsed.preferredSkills.includes("Python"));
+ assert.ok(!parsed.requiredSkills.includes("Python"));
+ const inline=parseJobDescription("SQL required. Python preferred.");
+ assert.ok(inline.requiredSkills.includes("SQL"));
+ assert.ok(inline.preferredSkills.includes("Python"));
 });
 
-test("Jobs & Careers - Save & Application Workflow", async () => {
-  // Get or create test user
-  let user = await db.user.findFirst();
-  if (!user) {
-    user = await db.user.create({
-      data: {
-        email: "jobtestcandidate@example.com",
-        passwordHash: "hash",
-        name: "Test Candidate",
-        role: "CANDIDATE",
-      },
-    });
-  }
-
-  // Create temporary test job
-  const testJob = await db.jobPosting.create({
-    data: {
-      title: "Full Stack Test Role",
-      company: "TestCompany2",
-      location: "Remote",
-      workMode: "Remote",
-      type: "Full-time",
-      description: "Test description",
-      requirements: "React, Node.js",
-      skills: "React, Node.js",
-      status: "ACTIVE",
-      verificationStatus: "VERIFIED",
-    },
-  });
-
-  // Create test resume
-  let resume = await db.resume.findFirst({ where: { userId: user.id } });
-  if (!resume) {
-    resume = await db.resume.create({
-      data: {
-        userId: user.id,
-        title: "Test Candidate Resume",
-        contentJson: JSON.stringify({ personalInfo: { fullName: user.name } }),
-      },
-    });
-  }
-
-  try {
-    // Toggle Save
-    const saved = await toggleSaveJob(user.id, testJob.id);
-    assert.equal(saved.isSaved, true);
-
-    const savedList = await getSavedJobs(user.id);
-    assert.equal(savedList.some((s) => s.id === testJob.id), true);
-
-    // Unsave
-    const unsaved = await toggleSaveJob(user.id, testJob.id);
-    assert.equal(unsaved.isSaved, false);
-
-    // Apply to Job
-    const application = await applyToJob(
-      user.id,
-      testJob.id,
-      resume.id,
-      "Excited to apply!"
-    );
-    assert.equal(application.status, "APPLIED");
-
-    // Prevent duplicate application
-    await assert.rejects(
-      async () => {
-        await applyToJob(user.id, testJob.id, resume.id, "Second try");
-      },
-      {
-        name: "Error",
-        message: /Already Applied/,
-      }
-    );
-
-    // Verify candidate application tracking & withdrawal
-    const candidateApps = await getCandidateApplications(user.id);
-    assert.equal(candidateApps.applications.length >= 1, true);
-
-    const updatedApp = await withdrawApplication(user.id, application.id);
-    assert.equal(updatedApp.status, "WITHDRAWN");
-  } finally {
-    // Clean up
-    await db.jobApplication.deleteMany({ where: { jobId: testJob.id } });
-    await db.savedJob.deleteMany({ where: { jobId: testJob.id } });
-    await db.jobPosting.delete({ where: { id: testJob.id } });
-  }
+test("Apply refuses a resume changed after review and returns the winning concurrent submission",async()=>{
+ const jobId="111111111111111111111111",resumeId="222222222222222222222222";
+ const revision=new Date("2026-09-01T00:00:00Z");let lookups=0;
+ const restores=[
+  stubMethod(db.jobPosting,"findUnique",async()=>({id:jobId,status:"ACTIVE",verificationStatus:"VERIFIED",expiresAt:null,updatedAt:revision})),
+  stubMethod(db.resume,"findFirst",async()=>({id:resumeId,updatedAt:revision})),
+  stubMethod(db.jobApplication,"findUnique",async()=>++lookups===1?null:{id:"winning-application"}),
+  stubMethod(db,"$transaction",async()=>{throw new Prisma.PrismaClientKnownRequestError("duplicate",{code:"P2002",clientVersion:"fixture"});}),
+ ];
+ try{
+  await assert.rejects(()=>applyToJob("owner",jobId,resumeId,"",new Date("2026-08-01").toISOString()),/resume changed/);
+  lookups=0;
+  assert.equal((await applyToJob("owner",jobId,resumeId,"",revision.toISOString())).id,"winning-application");
+ }finally{restores.reverse().forEach(r=>r());}
 });
