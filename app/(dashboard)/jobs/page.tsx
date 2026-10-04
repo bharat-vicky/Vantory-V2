@@ -451,10 +451,10 @@ export default function JobsMarketplacePage() {
                     className="w-full text-xs bg-white border border-neutral-300 rounded-2xl p-3 text-neutral-950 focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 font-bold shadow-2xs"
                   >
                     <option value="ALL">All Salary Ranges</option>
-                    <option value="0-25k">Up to â‚¹25,000 / mo</option>
-                    <option value="25k-50k">â‚¹25,000 - â‚¹50,000 / mo</option>
-                    <option value="50k-100k">â‚¹50,000 - â‚¹1,00,000 / mo</option>
-                    <option value="100k+">â‚¹1,00,000+ / mo</option>
+                    <option value="0-25k">Up to ₹25,000 / mo</option>
+                    <option value="25k-50k">₹25,000 - ₹50,000 / mo</option>
+                    <option value="50k-100k">₹50,000 - ₹1,00,000 / mo</option>
+                    <option value="100k+">₹1,00,000+ / mo</option>
                   </select>
                 </div>
 

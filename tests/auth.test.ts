@@ -10,6 +10,44 @@ import {
 } from "../lib/validation/auth";
 import { hasRole } from "../lib/auth/authorization";
 import { createRawAuthToken, hashAuthToken } from "../lib/auth/token-utils";
+import { consumeAuthLimit, authRequestLimit } from "../lib/auth/request-rate-limit";
+import { db } from "../lib/db";
+import { stubMethod } from "./fixtures";
+import { Prisma } from "@prisma/client";
+import { GET as readiness } from "../app/api/internal/readiness/route";
+
+test("Concurrent initial auth buckets retry a unique-key race without skipping a count",async()=>{
+ const restores=[stubMethod(db.authRateLimit,"upsert",async()=>{throw new Prisma.PrismaClientKnownRequestError("fixture collision",{code:"P2002",clientVersion:"fixture"});}),stubMethod(db.authRateLimit,"update",async(args:any)=>{assert.equal(args.data.count.increment,1);return {count:11};})];
+ try{assert.equal((await consumeAuthLimit("login","fixture",10,60000)).allowed,false);}finally{restores.reverse().forEach(restore=>restore());}
+});
+
+test("Readiness diagnostics require a secret and do not claim unprobed providers are healthy",async()=>{
+ const previous=process.env.CRON_SECRET;process.env.CRON_SECRET="fixture-readiness-secret-of-more-than-32-characters";
+ const restore=stubMethod(db.user,"findFirst",async()=>({id:"private-id"}));
+ try{
+  assert.equal((await readiness(new Request("https://example.com/api/internal/readiness"))).status,401);
+  const response=await readiness(new Request("https://example.com/api/internal/readiness",{headers:{authorization:`Bearer ${process.env.CRON_SECRET}`}}));
+  const body=await response.json();assert.equal(body.database,"reachable");assert.equal(body.ai,"not_configured");assert.equal(body.coding,"not_configured");assert.ok(!JSON.stringify(body).includes("private-id"));
+ }finally{restore();process.env.CRON_SECRET=previous;}
+});
+
+test("Shared auth buckets enforce concurrent attempts without storing raw identifiers", async () => {
+  const counts = new Map<string,number>();
+  const restore=stubMethod(db.authRateLimit,"upsert",async(args:any)=>{assert.match(args.where.id,/^[a-f0-9]{64}$/);assert.ok(!JSON.stringify(args).includes("private@example.com"));const count=(counts.get(args.where.id)||0)+1;counts.set(args.where.id,count);return {...args.create,count};});
+  try {
+    const results=await Promise.all(Array.from({length:12},()=>consumeAuthLimit("login","private@example.com",10,60000,100000)));
+    assert.equal(results.filter(r=>r.allowed).length,10);
+    assert.equal((await consumeAuthLimit("login","private@example.com",10,60000,120001)).allowed,true);
+  } finally {restore();}
+});
+
+test("Auth throttling returns retry guidance and fails closed if storage is unavailable", async () => {
+  const request=new Request("https://example.com/api/auth/login",{headers:{"x-vercel-forwarded-for":"203.0.113.1"}});
+  let restore=stubMethod(db.authRateLimit,"upsert",async()=>({count:100}));
+  try {const response=await authRequestLimit(request,"login","candidate@example.com");assert.equal(response?.status,429);assert.ok(Number(response?.headers.get("retry-after"))>0);} finally {restore();}
+  restore=stubMethod(db.authRateLimit,"upsert",async()=>{throw new Error("fixture outage");});
+  try {assert.equal((await authRequestLimit(request,"login"))?.status,503);}finally{restore();}
+});
 
 test("Password Hashing & Verification", async () => {
   const plainPassword = "SuperSecretPassword123!";

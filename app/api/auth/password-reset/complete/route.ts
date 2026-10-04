@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { AuthError } from "@/lib/auth/errors";
 import { completePasswordReset } from "@/lib/services/auth/email-tokens";
+import { authRequestLimit } from "@/lib/auth/request-rate-limit";
 
 export async function POST(request: Request) {
   try {
+    const limited = await authRequestLimit(request, "password-reset-complete");
+    if (limited) return limited;
     const body: unknown = await request.json();
     const values =
       body && typeof body === "object" ? (body as Record<string, unknown>) : {};

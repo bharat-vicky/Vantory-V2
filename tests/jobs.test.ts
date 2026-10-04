@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {annualSalary,discoveryPipeline} from "../lib/jobs/discovery";
 import {readApplicationSnapshot} from "../lib/jobs/snapshots";
-import {setSavedJob,applyToJob} from "../lib/jobs/jobs-service";
+import {setSavedJob,applyToJob,getSavedJobs} from "../lib/jobs/jobs-service";
 import {jobPreparationDescription} from "../lib/jobs/context";
 import {parseJobDescription} from "../lib/ats/parser/job-parser";
 import {Prisma} from "@prisma/client";
@@ -10,6 +10,11 @@ import {checkEligibility,validateEligibility} from "../lib/jobs/eligibility";
 import {defaultCareer} from "../lib/candidate/profile";
 import {db} from "../lib/db";
 import {stubMethod} from "./fixtures";
+
+test("Saved jobs include the candidate's existing application and closed-opening state",async()=>{
+ const restores=[stubMethod(db.savedJob,"findMany",async()=>[{id:"saved",jobId:"job",createdAt:new Date(),job:{id:"job",status:"ACTIVE",verificationStatus:"VERIFIED",expiresAt:new Date("2020-01-01")}}]),stubMethod(db.jobApplication,"findMany",async(args:any)=>{assert.equal(args.where.userId,"owner");assert.deepEqual(args.where.jobId.in,["job"]);return [{jobId:"job",id:"application",status:"REJECTED"}];})];
+ try {const [job]=await getSavedJobs("owner");assert.equal(job.hasApplied,true);assert.equal(job.existingApplicationId,"application");assert.equal(job.applicationStatus,"REJECTED");assert.equal(job.isAvailable,false);} finally{restores.reverse().forEach(r=>r());}
+});
 test("Discovery normalizes pay periods and leaves unknown periods incomparable",()=>{assert.equal(annualSalary(25000,"month"),300000);assert.equal(annualSalary(300000,"year"),300000);assert.equal(annualSalary(500,"hour"),null);});
 test("Discovery escapes regex input, keeps availability constraints and validates pagination",()=>{const p=discoveryPipeline({query:"C++ (test)",sortBy:"relevance",salaryRange:"25k-50k"},["SQL"]);const json=JSON.stringify(p.pipeline);assert.match(json,/expiresAt/);assert.match(json,/VERIFIED/);assert.equal((p.pipeline[0] as any).$match.$and[1].$or[0].title.$regex,"C\\+\\+ \\(test\\)");assert.match(json,/annualMax/);assert.match(json,/relevance/);assert.throws(()=>discoveryPipeline({page:NaN}),/pagination/);});
 test("Saved job DELETE is idempotent and never creates a record",async()=>{let deletes=0;const restore=stubMethod(db.savedJob,"deleteMany",async()=>{deletes++;return {count:0};});try{const id="111111111111111111111111";assert.deepEqual(await setSavedJob("owner",id,false),{isSaved:false});assert.deepEqual(await setSavedJob("owner",id,false),{isSaved:false});assert.equal(deletes,2);}finally{restore();}});

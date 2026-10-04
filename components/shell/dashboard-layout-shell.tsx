@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Header } from "@/components/shell/header";
 import { MobileNav } from "@/components/shell/mobile-nav";
@@ -15,6 +15,7 @@ export function DashboardLayoutShell({
   children: React.ReactNode;
 }) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const closeMobileNav = useCallback(() => setIsMobileNavOpen(false), []);
 
   return (
     <ToastProvider>
@@ -24,15 +25,15 @@ export function DashboardLayoutShell({
         <Sidebar className="hidden md:flex" />
         <MobileNav
           isOpen={isMobileNavOpen}
-          onClose={() => setIsMobileNavOpen(false)}
+          onClose={closeMobileNav}
         />
-        <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        <div className="flex-1 flex flex-col min-w-0 min-h-screen" inert={isMobileNavOpen}>
           <Header onMobileMenuToggle={() => setIsMobileNavOpen(true)} />
-          <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto space-y-6">
+          <main className="flex-1 p-4 pb-20 sm:p-6 sm:pb-20 md:p-8 max-w-7xl w-full mx-auto space-y-6">
             <PageTransition>{children}</PageTransition>
           </main>
           <footer className="border-t border-neutral-200 py-4 px-6 text-center text-xs font-mono text-neutral-400">
-            Vantory Platform • Strict Monochrome Standard • Version 1.0.0
+            Vantory • Career Advantage + Direction
           </footer>
         </div>
       </div>

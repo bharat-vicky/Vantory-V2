@@ -16,6 +16,7 @@ import { TextAiSelectionMenu } from "../ai/TextAiSelectionMenu";
 import { ResumeCoachingPanel } from "./ResumeCoachingPanel";
 import { ResumeReviewPanel } from "./ResumeReviewPanel";
 import type { BulletAnchor } from "@/lib/resume/coaching";
+import { previewPageCount } from "@/lib/resume/preview-pages";
 
 const A4_PAGE_HEIGHT_RATIO = 297 / 210;
 const CSS_PIXELS_PER_MM = 96 / 25.4;
@@ -68,11 +69,8 @@ export function ResumeWorkspace({ initialResume }: ResumeWorkspaceProps) {
     if (!preview) return;
 
     const checkPages = () => {
-      const pageHeight = getPreviewPageHeight(preview);
-      const pages = Math.max(
-        1,
-        Math.ceil(preview.getBoundingClientRect().height / pageHeight),
-      );
+      const bounds = preview.getBoundingClientRect();
+      const pages = previewPageCount(bounds.width, bounds.height);
       setTotalPages(pages);
       setCurrentPage((page) => Math.min(page, pages));
     };
@@ -276,6 +274,9 @@ export function ResumeWorkspace({ initialResume }: ResumeWorkspaceProps) {
   return (
     <div className="space-y-6 max-w-7xl mx-auto selection:bg-neutral-900 selection:text-white pb-12">
       {/* Top Toolbar */}
+      <label className="block text-sm font-semibold">Resume name
+        <input value={resumeData.title} maxLength={120} disabled={coachingBusy} onChange={event=>setResumeData({...resumeData,title:event.target.value})} className="block w-full max-w-lg mt-2 border rounded-lg p-3" placeholder="e.g. Frontend developer resume" />
+      </label>
       <div className="flex gap-4 text-sm"><button className="underline" disabled={previewBusy} onClick={async()=>{setPreviewBusy(true);try{await flushSave();const r=await fetch("/api/resumes/active/pdf",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(resumeData)});if(!r.ok)throw new Error("Unable to preview PDF.");setPdfPreviewUrl(URL.createObjectURL(await r.blob()));}catch(e){setSaveError(e instanceof Error?e.message:"Unable to preview PDF.");}finally{setPreviewBusy(false);}}}>{previewBusy?"Preparing PDF?":"Preview exported PDF"}</button>{pdfPreviewUrl && <button className="underline" onClick={()=>setPdfPreviewUrl(undefined)}>Close PDF preview</button>}</div>
       {pdfPreviewUrl && <iframe title="Actual exported resume PDF" src={pdfPreviewUrl} className="w-full h-[800px] border rounded-lg"/>}
       {saveError && <div role="alert" className="p-3 bg-amber-50 text-sm rounded-lg">{saveError} {recoveredDraft ? <button className="underline ml-3" onClick={()=>{serverRevisionRef.current=recoveredBaseRef.current;setResumeData({...recoveredDraft,id:initialResume.id});setRecoveredDraft(null);}}>Restore draft</button>:<><button className="underline ml-3" onClick={()=>void flushSave().catch(()=>undefined)}>Retry save</button><button className="underline ml-3" onClick={async()=>{try{const r=await fetch("/api/resumes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create"})});const j=await r.json();if(!r.ok)throw new Error(j.error);const saved=await fetch("/api/resumes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({resumeId:j.resume.id,expectedUpdatedAt:j.resume.updatedAt,content:{...resumeData,id:j.resume.id,title:`${resumeData.title} (recovered)`}})});if(!saved.ok)throw new Error("Could not save recovered copy. Your local draft remains available.");window.location.assign(`/resume?resumeId=${j.resume.id}`);}catch(e){setSaveError(e instanceof Error?e.message:"Recovery failed.");}}}>Save draft as a new resume</button></>}</div>}
@@ -300,7 +301,7 @@ export function ResumeWorkspace({ initialResume }: ResumeWorkspaceProps) {
       {/* Main Workspace Split Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Editor Controls */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="lg:col-span-6 space-y-6 min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-mono uppercase tracking-wider text-neutral-600 font-bold">
               RESUME CONTENT EDITOR
@@ -314,7 +315,7 @@ export function ResumeWorkspace({ initialResume }: ResumeWorkspaceProps) {
         </div>
 
         {/* Right Column: Live A4 Overleaf Preview */}
-        <div className="lg:col-span-6 space-y-3 lg:sticky lg:top-20">
+        <div className="lg:col-span-6 space-y-3 lg:sticky lg:top-20 min-w-0">
           {/* Overleaf Control Bar (Sleek Dark Theme Aligned) */}
           <div className="bg-neutral-950 text-white p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-xl font-sans text-xs border border-neutral-800">
             {/* Recompile Button */}
@@ -382,13 +383,14 @@ export function ResumeWorkspace({ initialResume }: ResumeWorkspaceProps) {
                   -
                 </button>
 
-                <span
+                <button
+                  type="button"
                   onClick={handleCycleZoom}
                   className="px-1.5 min-w-[42px] text-center font-bold text-neutral-100 hover:text-emerald-400 transition-colors cursor-pointer"
                   title="Click to cycle zoom presets"
                 >
                   {Math.round(zoomLevel * 100)}%
-                </span>
+                </button>
 
                 <button
                   onClick={() =>
@@ -412,13 +414,15 @@ export function ResumeWorkspace({ initialResume }: ResumeWorkspaceProps) {
             data-lenis-prevent="true"
             data-lenis-prevent-wheel="true"
             data-lenis-prevent-touch="true"
-            className="bg-neutral-900/95 border border-neutral-800 rounded-2xl p-4 sm:p-6 flex justify-center items-start overflow-x-auto overflow-y-auto h-[calc(100vh-170px)] shadow-2xl custom-scrollbar"
+            className="bg-neutral-900/95 border border-neutral-800 rounded-2xl p-4 sm:p-6 flex justify-start items-start overflow-x-auto overflow-y-auto h-[calc(100vh-170px)] shadow-2xl custom-scrollbar"
           >
             <div
               style={{
                 zoom: zoomLevel,
                 transition: "zoom 0.2s ease-in-out",
-                width: "100%",
+                width: "210mm",
+                flexShrink: 0,
+                margin: "0 auto",
                 display: "flex",
                 justifyContent: "center",
               }}

@@ -1,3 +1,4 @@
+export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { requireCandidate } from "@/lib/auth/authorization";
 import { apiError } from "@/lib/api-error";

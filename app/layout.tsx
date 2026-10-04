@@ -41,9 +41,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full bg-white">
       <head>
-        <link rel="preconnect" href="https://generativelanguage.googleapis.com" />
-        <link rel="preconnect" href="https://aws-0-ap-northeast-2.pooler.supabase.com" />
-        <link rel="dns-prefetch" href="https://aws-0-ap-northeast-2.pooler.supabase.com" />
       </head>
       <body className={`${outfit.variable} ${inter.variable} ${jetbrainsMono.variable} min-h-full font-sans antialiased text-neutral-950 bg-white`}>
         <SmoothScroll>

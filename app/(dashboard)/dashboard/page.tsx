@@ -1,7 +1,7 @@
 "use client";
 
 import {Reminders} from "@/components/candidate/Reminders";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -64,15 +64,15 @@ export default function CandidateDashboardPage() {
   const [savedJobsCount, setSavedJobsCount] = useState<number>(0);
   const [recentJobs, setRecentJobs] = useState<JobOpeningItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState("");
 
-  useEffect(() => {
-    async function loadDashboardData() {
+  const loadDashboardData = useCallback(async () => {
       setIsLoading(true);
+      setLoadError("");
       try {
         const res = await fetch("/api/dashboard/summary");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || "Dashboard data is temporarily unavailable.");
             if (json.user) setUser(json.user);
             if (Array.isArray(json.resumes)) setResumes(json.resumes);
             if (Array.isArray(json.atsScans)) setAtsScans(json.atsScans);
@@ -80,17 +80,16 @@ export default function CandidateDashboardPage() {
             if (Array.isArray(json.applications)) setApplications(json.applications);
             if (typeof json.savedJobsCount === "number") setSavedJobsCount(json.savedJobsCount);
             if (Array.isArray(json.recentJobs)) setRecentJobs(json.recentJobs);
-          }
-        }
-      } catch {
-        // Handle silently
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : "Dashboard data is temporarily unavailable.");
       } finally {
         setIsLoading(false);
       }
-    }
+    }, []);
 
+  useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
   const latestScan = atsScans.length > 0 ? atsScans[0] : null;
   const latestResume = resumes.length > 0 ? resumes[0] : null;
@@ -110,6 +109,7 @@ export default function CandidateDashboardPage() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-950 font-sans p-6 md:p-10 space-y-8">
+      {loadError && <div role="alert" className="border border-amber-300 bg-amber-50 p-4 rounded-xl text-sm"><p>{loadError} Displayed data may be outdated.</p><button disabled={isLoading} onClick={loadDashboardData} className="underline mt-2">Try again</button></div>}
       <Reminders/>
       {/* Top Welcome Card */}
       <div className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-6 md:p-8 space-y-4">
@@ -155,7 +155,7 @@ export default function CandidateDashboardPage() {
               <FileText className="w-4 h-4 text-neutral-500" />
             </div>
             <div className="text-2xl font-black text-neutral-950 font-mono">
-              {isLoading ? "-" : resumes.length}
+              {isLoading || loadError ? "—" : resumes.length}
             </div>
             <span className="text-[10px] text-neutral-500 block">
               {latestResume ? `Last updated ${new Date(latestResume.updatedAt).toLocaleDateString()}` : "No resumes built yet"}
@@ -168,7 +168,7 @@ export default function CandidateDashboardPage() {
               <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
             <div className="text-2xl font-black text-neutral-950 font-mono">
-              {isLoading ? "-" : latestScan?.jobMatchScore!=null ? `${latestScan.jobMatchScore}/100` : "Not assessed"}
+              {isLoading || loadError ? "—" : latestScan?.jobMatchScore!=null ? `${latestScan.jobMatchScore}/100` : "Not assessed"}
             </div>
             <span className="text-[10px] text-neutral-500 block">
               {latestScan ? latestScan.targetJobTitle : "No ATS scans run yet"}
@@ -181,7 +181,7 @@ export default function CandidateDashboardPage() {
               <Briefcase className="w-4 h-4 text-neutral-500" />
             </div>
             <div className="text-2xl font-black text-neutral-950 font-mono">
-              {isLoading ? "-" : applicationsCount}
+              {isLoading || loadError ? "—" : applicationsCount}
             </div>
             <span className="text-[10px] text-neutral-500 block">Active corporate tracking</span>
           </div>
@@ -192,7 +192,7 @@ export default function CandidateDashboardPage() {
               <Bookmark className="w-4 h-4 text-neutral-500" />
             </div>
             <div className="text-2xl font-black text-neutral-950 font-mono">
-              {isLoading ? "-" : savedJobsCount}
+              {isLoading || loadError ? "—" : savedJobsCount}
             </div>
             <span className="text-[10px] text-neutral-500 block">Opportunities saved</span>
           </div>
@@ -214,7 +214,7 @@ export default function CandidateDashboardPage() {
               <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:translate-x-1 transition-transform" />
             </h3>
             <p className="text-xs text-neutral-500 leading-relaxed">
-              Design A4 ATS-formatted resumes with LaTeX and Monochrome styling.
+              Build structured A4 resumes and review the exported PDF.
             </p>
           </div>
         </Link>

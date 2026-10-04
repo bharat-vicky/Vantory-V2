@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeEmail } from "@/lib/validation/auth";
 import { requestPasswordReset } from "@/lib/services/auth/email-tokens";
+import { authRequestLimit } from "@/lib/auth/request-rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,8 @@ export async function POST(request: Request) {
         : null;
     if (typeof value === "string") {
       const email = normalizeEmail(value);
+      const limited = await authRequestLimit(request, "password-reset", email);
+      if (limited) return limited;
       if (email.length <= 254) await requestPasswordReset(email);
     }
   } catch (error) {

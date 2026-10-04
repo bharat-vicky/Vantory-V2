@@ -39,6 +39,7 @@ import {
   TruthGuardItem,
 } from "@/lib/ats/types";
 import { extractTextFromFile } from "@/lib/ats/parser/file-text-extractor";
+import { reportInputKey, reportMatchesRevision } from "@/lib/ats/report-context";
 
 interface DbResumeOption {
   id: string;
@@ -87,6 +88,8 @@ export default function AtsCheckerPage() {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [pipelineStage, setPipelineStage] = useState<string>("");
   const [report, setReport] = useState<ATSReportSnapshot | null>(null);
+  const [reportInputs, setReportInputs] = useState("");
+  const [reportSource, setReportSource] = useState("");
   const [history, setHistory] = useState<ScanHistoryItem[]>([]);
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
   const [showAllSkills, setShowAllSkills] = useState<boolean>(false);
@@ -119,6 +122,8 @@ export default function AtsCheckerPage() {
         throw new Error(json.error || "Could not load that ATS scan.");
       }
       setReport(json.scan.snapshot);
+      setReportInputs(reportInputKey({resumeId:json.scan.resumeId || "",uploadedResumeText:"",targetJobTitle:json.scan.targetJobTitle,companyName:json.scan.companyName || "",jobDescription:json.scan.jobDescription}));
+      setReportSource(json.scan.resumeId ? "Saved resume" : "Historical or uploaded resume (select or upload a source to rescan)");
       setSelectedResumeId(json.scan.resumeId || "");
       setJobTitle(json.scan.targetJobTitle);setCompanyName(json.scan.companyName || "");setJobDescription(json.scan.jobDescription);setUploadedFileText("");setUploadedFileName("");
       setAppliedImprovementIds([]);
@@ -134,7 +139,9 @@ export default function AtsCheckerPage() {
     let isMounted = true;
     async function loadInitialData() {
       try {
-        const requestedResume=new URLSearchParams(window.location.search).get("resumeId");
+        const search=new URLSearchParams(window.location.search);
+        const requestedResume=search.get("resumeId");
+        const requestedScan=search.get("scanId");
         const [resumesRes, scansRes] = await Promise.all([
           fetch("/api/resumes"),
           fetch("/api/ats/scans"),
@@ -154,13 +161,13 @@ export default function AtsCheckerPage() {
           const json = await scansRes.json();
           if (json.success && Array.isArray(json.scans)) {
             setHistory(json.scans);
-            if (json.scans.length > 0 && !requestedResume) {
-              loadScanDetails(json.scans[0].id);
+            if (requestedScan || (json.scans.length > 0 && !requestedResume)) {
+              await loadScanDetails(requestedScan || json.scans[0].id);
             }
           }
         }
       } catch {
-        // Handle silently
+        if (isMounted) setError("Could not load saved resumes or scan history. Reload to try again.");
       }
     }
 
@@ -259,6 +266,8 @@ export default function AtsCheckerPage() {
       }
 
       setReport(json.snapshot);
+      setReportInputs(reportInputKey({resumeId:selectedResumeId,uploadedResumeText:uploadedFileText,targetJobTitle:jobTitle,companyName,jobDescription}));
+      setReportSource(uploadedFileName || resumes.find(r=>r.id===selectedResumeId)?.title || "Saved resume");
 
       fetch("/api/ats/scans")
         .then((r) => r.json())
@@ -286,6 +295,8 @@ export default function AtsCheckerPage() {
     uploadedFileText,
     jobTitle,
     companyName,
+    uploadedFileName,
+    resumes,
   ]);
 
   const handleConfirmTruthGuardSkill = useCallback(
@@ -423,8 +434,17 @@ export default function AtsCheckerPage() {
     return list.slice(0, 5);
   }, [report, showAllBullets]);
 
+  const selectedResume = resumes.find(resume => resume.id === selectedResumeId);
+  const previousResult = Boolean(report && (reportInputs !== reportInputKey({resumeId:selectedResumeId,uploadedResumeText:uploadedFileText,targetJobTitle:jobTitle,companyName,jobDescription}) || !reportMatchesRevision(report.resumeRevision, selectedResume?.updatedAt)));
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-neutral-950 font-sans p-4 sm:p-6 md:p-8 space-y-6 w-full max-w-none">
+      {report && <section role="status" className={`p-4 border rounded-xl text-sm space-y-2 ${previousResult ? "border-amber-400 bg-amber-50" : "bg-white"}`}>
+        <h2 className="font-semibold">{previousResult ? "Previous result — run analysis for the current inputs" : "Saved analysis result"}</h2>
+        <p>Analyzed source: {report.resumeId ? resumes.find(r=>r.id===report.resumeId)?.title || "Original saved resume" : reportSource}. Role: {report.targetJobTitle}. Created: {new Date(report.createdAt).toLocaleString()}.</p>
+        {report.resumeRevision && <p>Resume version: {new Date(report.resumeRevision).toLocaleString()}</p>}
+        <details><summary>Job description used for this result</summary><p className="whitespace-pre-wrap mt-2">{report.jobDescriptionText}</p></details>
+      </section>}
       {uploadedFileText && <label className="block text-sm">Review and correct extracted upload text<textarea value={uploadedFileText} onChange={e=>setUploadedFileText(e.target.value)} className="block w-full p-3 border rounded-xl mt-2" rows={8}/></label>}
       {report && <div className="p-4 rounded-xl bg-neutral-50 border text-sm space-y-2"><p>{report.assessmentStatus==="HISTORICAL_UNVALIDATED"?"Historical heuristic report: rescan to use current evidence rules.":"Rule-based resume comparison. This is not an employer ATS score or a hiring prediction. Semantic similarity, location suitability and visual PDF layout are not assessed."}</p><details><summary>Review extracted education, dates and skills</summary><pre className="whitespace-pre-wrap text-xs">{JSON.stringify(report.extractionPreview,null,2)}</pre><p>Correct your resume or uploaded text and rescan if extraction is wrong.</p></details><p>Simulator estimates one change at a time. It assumes truthful skill possession; selections do not edit your resume.</p></div>}
       {/* Top Header Card */}
@@ -554,6 +574,8 @@ export default function AtsCheckerPage() {
                 </span>
                 <select
                   value={selectedResumeId}
+                  aria-label="Saved resume"
+                  disabled={isAnalyzing}
                   onChange={(e) => {
                     setSelectedResumeId(e.target.value);
                     setUploadedFileName("");
@@ -561,6 +583,8 @@ export default function AtsCheckerPage() {
                   }}
                   className="w-full text-xs bg-white border border-neutral-300 rounded-xl px-3.5 py-3 text-neutral-950 focus:outline-none focus:border-neutral-950 font-bold shadow-2xs cursor-pointer"
                 >
+                  <option value="">{uploadedFileText ? "Uploaded resume" : "Select a resume to analyze"}</option>
+                  {selectedResumeId && !resumes.some(r=>r.id===selectedResumeId) && <option value={selectedResumeId}>Original resume no longer available</option>}
                   {resumes.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.title} ({new Date(r.updatedAt).toLocaleDateString()})
@@ -592,6 +616,7 @@ export default function AtsCheckerPage() {
               <input
                 type="file"
                 accept=".pdf,.docx,.txt"
+                disabled={isAnalyzing || isExtractingFile}
                 onChange={handleFileUpload}
                 className="hidden"
               />
@@ -607,6 +632,7 @@ export default function AtsCheckerPage() {
               <input
                 type="text"
                 value={jobTitle}
+                disabled={isAnalyzing}
                 onChange={(e) => setJobTitle(e.target.value)}
                 maxLength={160}
                 placeholder="e.g. Junior Software Developer"
@@ -621,6 +647,7 @@ export default function AtsCheckerPage() {
               <input
                 type="text"
                 value={companyName}
+                disabled={isAnalyzing}
                 onChange={(event) => setCompanyName(event.target.value)}
                 maxLength={160}
                 placeholder="e.g. Acme Technologies"
@@ -636,6 +663,7 @@ export default function AtsCheckerPage() {
                 <button
                   type="button"
                   onClick={() => setJobDescription(DEFAULT_SAMPLE_JD)}
+                  disabled={isAnalyzing}
                   className="text-[10px] font-mono text-neutral-500 hover:text-neutral-950 underline cursor-pointer"
                 >
                   Load Sample JD
@@ -643,6 +671,7 @@ export default function AtsCheckerPage() {
               </div>
               <textarea
                 value={jobDescription}
+                disabled={isAnalyzing}
                 onChange={(e) => setJobDescription(e.target.value)}
                 rows={6}
                 maxLength={50000}
@@ -1336,7 +1365,7 @@ export default function AtsCheckerPage() {
               className="flex flex-wrap gap-3 pt-2 w-full"
             >
               <Link
-                href={selectedResumeId?`/resume?resumeId=${selectedResumeId}`:"/resume"}
+                href={report?.resumeId?`/resume?resumeId=${report.resumeId}`:"/resume"}
                 className="px-6 py-3.5 bg-neutral-950 text-white font-extrabold text-xs rounded-2xl hover:bg-neutral-800 transition-all flex items-center gap-2 shadow-md"
               >
                 <Briefcase className="w-4 h-4" />

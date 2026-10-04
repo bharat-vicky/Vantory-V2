@@ -336,7 +336,7 @@ export default function ApplicationsTrackingPage() {
                       <FileCheck className="w-3.5 h-3.5 text-neutral-400" />
                       <span>{app.resumeTitle}</span>
                     </span>
-                    <span>â€¢</span>
+                    <span>•</span>
                     <span>
                       Applied {new Date(app.appliedAt).toLocaleDateString()}
                     </span>

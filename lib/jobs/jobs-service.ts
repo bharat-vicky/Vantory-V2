@@ -119,10 +119,19 @@ export async function getSavedJobs(userId: string) {
     },
   });
 
+  const applications = await db.jobApplication.findMany({
+    where: { userId, jobId: { in: savedRecords.map(record => record.jobId) } },
+    select: { id: true, jobId: true, status: true },
+  });
+  const applicationByJob = new Map(applications.map(application => [application.jobId, application]));
+
   return savedRecords.map((s) => ({
     savedId: s.id,
     savedAt: s.createdAt.toISOString(),
     ...s.job,
+    hasApplied: applicationByJob.has(s.jobId),
+    existingApplicationId: applicationByJob.get(s.jobId)?.id || null,
+    applicationStatus: applicationByJob.get(s.jobId)?.status || null,
     isAvailable:s.job.status==="ACTIVE" && s.job.verificationStatus==="VERIFIED" && (!s.job.expiresAt || s.job.expiresAt>=new Date()),
   }));
 }

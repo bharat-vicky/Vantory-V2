@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { ApiError, apiError } from "@/lib/api-error";
 import { TOPICS,publicTopic,gradeQuiz } from "./curriculum";
 import { EXERCISES,executeAssessment } from "./execution";
+import {executionConfiguration} from "./execution-config";
 import { bestForKind } from "./plan";
 import { quizForAttempt,quizSet } from "./quiz-variants";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -16,7 +17,7 @@ export async function GET(){try{
   const u=await requireCandidate();
   const [p,tasks,attempts]=await Promise.all([db.profile.findUnique({where:{userId:u.id}}),db.preparationTask.findMany({where:{userId:u.id}}),db.preparationAttempt.findMany({where:{userId:u.id},orderBy:{createdAt:"desc"},take:100})]);
   const career=parseJson(p?.careerJson,defaultCareer);
-  return NextResponse.json({success:true,track:career.track,topics:TOPICS.filter(t=>t.track===career.track || t.track==="SHARED" || tasks.some(task=>task.topicId===t.id)).map(t=>{const n=tasks.find(task=>task.topicId===t.id)?.quizAttempts || 0;return {...publicTopic({...t,quiz:quizForAttempt(t,n)}),quizSet:quizSet(n)};}),tasks:tasks.map(t=>({...t,evidence:t.evidenceJson?JSON.parse(t.evidenceJson):null,source:t.sourceJson?JSON.parse(t.sourceJson):null})),attempts:attempts.map(a=>({...a,result:JSON.parse(a.resultJson)})),exercises:EXERCISES,executionAvailable:Boolean(process.env.JUDGE0_URL && process.env.JUDGE0_TOKEN)});
+  return NextResponse.json({success:true,track:career.track,topics:TOPICS.filter(t=>t.track===career.track || t.track==="SHARED" || tasks.some(task=>task.topicId===t.id)).map(t=>{const n=tasks.find(task=>task.topicId===t.id)?.quizAttempts || 0;return {...publicTopic({...t,quiz:quizForAttempt(t,n)}),quizSet:quizSet(n)};}),tasks:tasks.map(t=>({...t,evidence:t.evidenceJson?JSON.parse(t.evidenceJson):null,source:t.sourceJson?JSON.parse(t.sourceJson):null})),attempts:attempts.map(a=>({...a,result:JSON.parse(a.resultJson)})),exercises:EXERCISES,executionAvailable:executionConfiguration().available});
 }catch(e){return apiError(e);}}
 
 export async function POST(request:Request){try{

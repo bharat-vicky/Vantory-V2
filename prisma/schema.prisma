@@ -339,6 +339,14 @@ model PreparationTask {
   @@unique([userId, topicId])
 }
 
+// Fixed windows shared by all serverless instances. IDs hash the scope and
+// identifier; raw emails and network addresses are never stored here.
+model AuthRateLimit {
+  id        String   @id @map("_id")
+  count     Int      @default(0)
+  expiresAt DateTime
+}
+
 model PreparationAttempt {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId

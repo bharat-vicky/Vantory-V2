@@ -1,4 +1,12 @@
 import test from "node:test";
+import { reportInputKey, reportMatchesRevision } from "../lib/ats/report-context";
+
+test("ATS results become stale when source, job description, role or resume revision changes",()=>{
+ const input={resumeId:"r",uploadedResumeText:"",targetJobTitle:"Developer",companyName:"A",jobDescription:"Python"};
+ for(const change of [{resumeId:"r2"},{uploadedResumeText:"Uploaded facts"},{targetJobTitle:"Analyst"},{companyName:"B"},{jobDescription:"SQL"}])assert.notEqual(reportInputKey(input),reportInputKey({...input,...change}));
+ assert.equal(reportMatchesRevision("2026-01-01","2026-02-01"),false);
+ assert.equal(reportInputKey(input),reportInputKey({...input,companyName:" A "}));
+});
 import assert from "node:assert/strict";
 import { normalizeSkill, evaluateSkillMatch } from "../lib/ats/taxonomy/skills";
 import { parseJobDescription } from "../lib/ats/parser/job-parser";

@@ -404,10 +404,13 @@ export function Sidebar({ className }: { className?: string }) {
             )}
 
             {/* Trigger Card */}
-            <div
+            <button
+              type="button"
+              aria-label="Account menu"
+              aria-expanded={isUserDropdownOpen}
               onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
               className={cn(
-                "p-3 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-all select-none",
+                "w-full text-left p-3 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-all select-none",
                 isCollapsed && "justify-center p-2",
               )}
               title={isCollapsed ? user?.name || "User Account" : undefined}
@@ -425,9 +428,7 @@ export function Sidebar({ className }: { className?: string }) {
                     </h5>
                     <p className="text-[10px] text-neutral-500 truncate font-mono">
                       {user?.email ||
-                        (isCompanyContext
-                          ? "hr@company.com"
-                          : "candidate@vantory.com")}
+                        "Loading account…"}
                     </p>
                   </div>
                 )}
@@ -439,7 +440,7 @@ export function Sidebar({ className }: { className?: string }) {
                 ) : (
                   <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
                 ))}
-            </div>
+            </button>
           </div>
         </div>
       </aside>

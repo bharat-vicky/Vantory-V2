@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {TOPICS,publicTopic,gradeQuiz} from "../lib/preparation/curriculum";
 import {executeAssessment} from "../lib/preparation/execution";
+import {executionConfiguration} from "../lib/preparation/execution-config";
+
+test("Execution availability rejects malformed URLs, insecure endpoints and invalid language IDs",()=>{
+ assert.equal(executionConfiguration({}).available,false);
+ for(const url of ["not a URL","http://runner.example","https://user:password@runner.example","https://runner.example?token=secret"]){assert.equal(executionConfiguration({JUDGE0_URL:url,JUDGE0_TOKEN:"fixture"}).available,false);}
+ assert.equal(executionConfiguration({JUDGE0_URL:"https://runner.example",JUDGE0_TOKEN:"fixture",JUDGE0_SQL_LANGUAGE_ID:"NaN"}).available,false);
+ assert.equal(executionConfiguration({JUDGE0_URL:"https://runner.example",JUDGE0_TOKEN:"fixture"}).available,true);
+});
 import {calendarEvent} from "../lib/candidate/calendar";
 import {validateCareer,profileCompletion,defaultCareer} from "../lib/candidate/profile";
 import {preservesResumeFacts} from "../lib/ai/factual-rewrite";

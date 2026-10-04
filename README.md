@@ -60,7 +60,26 @@ Keep `.env.example`, this README, and technical documentation under `docs/` in t
 7. Run `npm run db:push` once from a trusted environment configured for the intended production database. Review schema changes before repeating it. The build generates Prisma Client; it does not change the schema.
 8. Deploy and check registration/login, OAuth, password reset and verification emails, resume PDF export, ATS/AI requests, jobs, and support ticket delivery. `/api/health` checks app availability; it does not verify database or provider connectivity.
 
-Optional code execution requires a separately hosted, patched Judge0 service with execution network access disabled. Configure `JUDGE0_URL` and `JUDGE0_TOKEN` only on the server.
+Optional code execution requires a separately hosted, patched Judge0 service with execution network access disabled. Configure `JUDGE0_URL` and `JUDGE0_TOKEN` only on the server. The rest of the platform, including quizzes, works without this service; code checks remain explicitly unavailable until it is configured.
+
+### Production reliability checks
+
+- Use `GEMINI_MODEL=gemini-3.5-flash-lite` and `INTERVIEW_MODEL=gemini-3.5-flash-lite`, or a reviewed model that is accessible to your API key. The previous `gemini-2.5-flash` default returned HTTP 404 for this project. The transport recovers unavailable legacy 2.5 models with the supported default and records the actual model in assessment metadata.
+- Run `node scripts/check-platform-services.mjs` for safe configuration checks. `--list-models` queries supported model names; `--probe-ai` sends a tiny synthetic JSON request. `node --import tsx scripts/check-platform-services.mjs --probe-assessment` validates a synthetic SQL interview answer through the real transport and rubric. These probes use no candidate records but consume a small amount of API usage. Never print environment values or raw provider errors.
+- Authentication throttling uses atomic `AuthRateLimit` records in MongoDB rather than instance-local counters. Prisma generation is required after pulling these changes; the normal build already does it. Run `node scripts/setup-rate-limit-index.mjs` once against the target database to create the TTL index for expired counters. This creates an index only in the rate-limit collection; it does not change user/resume/application records. The limiter works without the TTL index, but expired records otherwise need cleanup.
+- Basic `/api/health` remains a process-availability check. `GET /api/internal/readiness`, protected by `Authorization: Bearer <CRON_SECRET>` with a secret of at least 32 characters, checks database reachability and reports integration configuration without exposing keys. A `configured_not_probed` integration status is not proof that its provider is healthy.
+- `AI_REQUEST_FAILED` and `INTERVIEW_OUTPUT_REJECTED` logs contain failure categories and validation metadata, not candidate content. Use these to distinguish inaccessible models, quota/auth errors, timeouts, incomplete output and invalid response formats.
+- Before production release, verify PDF exports and AI feedback in the deployed environment, install the rate-limit TTL index, and review the public data-use and usage-guideline pages with the platform operator. Those pages describe product behavior; commercial terms and a jurisdiction-specific retention policy still need operator review.
+
+### Troubleshoot sign-in availability
+
+`Sign-in is temporarily unavailable.` is the login route's generic HTTP 503 response for an unexpected server error. Invalid credentials produce HTTP 401 with a different message. Check the runtime error after `Login failed due to an unexpected server error.` in Vercel Logs to identify the failing dependency.
+
+Run `npm run auth:check` on each local network. This read-only diagnostic loads environment files using Next.js rules and checks production JWT requirements, MongoDB SRV/TXT and host DNS, TCP reachability, and Prisma user/session reads. It never prints credentials or account data and does not test passwords, SMTP, or database writes. It tests the local configuration, not Vercel's deployed environment.
+
+If only one network works, check Atlas Network Access for that network's public IP, DNS SRV resolution, and outbound MongoDB ports. For Vercel, allow the deployment's outbound addresses in Atlas; allowing only your laptop's IP is insufficient. Standard Vercel deployments use dynamic outbound IPs; MongoDB's [Vercel integration documentation](https://www.mongodb.com/docs/atlas/reference/partner-integrations/vercel/) describes the `0.0.0.0/0` access-list requirement for that setup. This permits connection attempts from any IPv4 address while database authentication remains required; use restricted access when your deployment provides fixed outbound IPs.
+
+Confirm Production has the intended `MONGODB_URI` (including the correct database name), a valid random `JWT_SECRET`, and the HTTPS app URL. Redeploy after changing Vercel environment variables. Unverified accounts also require working SMTP to send verification links. Do not disable password checking or email verification to work around an unavailable dependency.
 
 Support retries use an external scheduler that sends **POST** to `/api/internal/support-dispatch` with `Authorization: Bearer <CRON_SECRET>`. Use an independent random secret of at least 32 characters. Vercel Cron invokes routes using GET, so this POST endpoint cannot be scheduled directly with a Vercel cron entry.
 

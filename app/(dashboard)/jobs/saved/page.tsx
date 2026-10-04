@@ -18,6 +18,10 @@ interface SavedJobItem {
   experience: string;
   salary?: string;
   verificationStatus: string;
+  isAvailable: boolean;
+  hasApplied: boolean;
+  existingApplicationId: string | null;
+  applicationStatus: string | null;
 }
 
 export default function SavedJobsPage() {
@@ -185,11 +189,17 @@ export default function SavedJobsPage() {
                   onClick={() => handleUnsave(job.id)}
                   className="p-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-neutral-500 hover:text-neutral-950 transition-colors"
                   title="Remove from saved"
+                  aria-label={`Remove ${job.title} from saved jobs`}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
 
-                <button
+                {job.hasApplied && job.existingApplicationId ? (
+                  <Link href={`/jobs/applications/${job.existingApplicationId}`} className="px-4 py-2.5 bg-neutral-950 text-white font-bold text-xs rounded-xl">
+                    View application ({job.applicationStatus?.replaceAll("_", " ")})
+                  </Link>
+                ) : <button
+                  disabled={!job.isAvailable}
                   onClick={() =>
                     setApplyModalJob({
                       id: job.id,
@@ -197,11 +207,11 @@ export default function SavedJobsPage() {
                       company: job.company,
                     })
                   }
-                  className="px-4 py-2.5 bg-neutral-950 text-white font-bold text-xs rounded-xl hover:bg-neutral-800 transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                  className="px-4 py-2.5 bg-neutral-950 text-white font-bold text-xs rounded-xl hover:bg-neutral-800 transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-3.5 h-3.5 text-white" />
-                  <span>Apply Now</span>
-                </button>
+                  <span>{job.isAvailable ? "Apply Now" : "Applications closed"}</span>
+                </button>}
               </div>
             </div>
           ))}

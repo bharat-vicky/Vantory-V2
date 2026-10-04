@@ -38,10 +38,10 @@ const MAGIC_FEATURES: MagicFeature[] = [
   {
     id: "resume",
     icon: FileText,
-    title: "LaTeX ATS Resume Builder",
+    title: "A4 ATS Resume Builder",
     subtitle: "Craft clean, ATS-proof resumes with live A4 preview.",
     description:
-      "Architected with LaTeX typography standards. Rearrange sections, enhance bullet points with AI, and export publication-grade PDFs.",
+      "Architected with A4 typography standards. Rearrange sections, enhance bullet points with AI, and export publication-grade PDFs.",
   },
   {
     id: "interview",
@@ -463,10 +463,10 @@ export default function Home() {
                             </div>
                             <div>
                               <div className="text-sm font-extrabold text-neutral-950">
-                                Sarah Jenkins
+                                Candidate workflow
                               </div>
                               <div className="text-xs text-neutral-400 font-normal">
-                                sarah@example.com • LaTeX ATS 94%
+                                sarah@example.com • A4 ATS 94%
                               </div>
                             </div>
                           </div>
@@ -504,7 +504,7 @@ export default function Home() {
                                 Emily Watson
                               </div>
                               <div className="text-xs text-neutral-400 font-normal">
-                                emilyw@enterprise.com • 300 DPI PDF Ready
+                                emilyw@enterprise.com • Vector PDF Ready
                               </div>
                             </div>
                           </div>
@@ -857,7 +857,7 @@ export default function Home() {
                           </span>
                         </div>
                         <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
-                          300 DPI PDF READY
+                          Vector PDF READY
                         </span>
                       </div>
 
@@ -873,7 +873,7 @@ export default function Home() {
                             </div>
                           </div>
                           <div className="w-8 h-8 rounded-lg bg-white text-black font-extrabold flex items-center justify-center text-xs shrink-0">
-                            LaTeX
+                            A4
                           </div>
                         </div>
 
@@ -934,7 +934,7 @@ export default function Home() {
                             OUTPUT PREVIEW
                           </div>
                           <div className="font-bold text-white text-xs mt-0.5">
-                            Publication-Grade LaTeX PDF
+                            Publication-Grade A4 PDF
                           </div>
                         </div>
                         <Link
@@ -1253,7 +1253,7 @@ export default function Home() {
                     Candidate Workspace
                   </h3>
                   <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                    Full access to LaTeX Resume Builder, AI Mock Interviews, ATS
+                    Full access to A4 Resume Builder, AI Mock Interviews, ATS
                     Keyword Scanner, and 1-Click Applications.
                   </p>
                 </div>
@@ -1262,7 +1262,7 @@ export default function Home() {
                 <div className="space-y-2.5 pt-3 border-t border-neutral-100 text-xs font-mono text-neutral-700">
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>LaTeX Resume & 300 DPI PDF Export</span>
+                    <span>A4 Resume & Vector PDF Export</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -1333,7 +1333,7 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>LaTeX Resume & Full-Screen Viewer</span>
+                    <span>A4 Resume & Full-Screen Viewer</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -1455,7 +1455,7 @@ export default function Home() {
             transition={{ duration: 0.5, staggerChildren: 0.15 }}
             className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left items-stretch"
           >
-            {/* Card 1: Sub-150ms LaTeX Engine */}
+            {/* Card 1: Sub-150ms A4 Engine */}
             <motion.div
               whileHover={{ y: -8, scale: 1.015 }}
               transition={{ duration: 0.25 }}
@@ -1476,15 +1476,14 @@ export default function Home() {
 
                 <div>
                   <div className="text-4xl font-extrabold text-neutral-950 tracking-tight">
-                    100% Native
+                    A4 PDF
                   </div>
                   <h4 className="text-base font-extrabold text-neutral-950 mt-1">
-                    LaTeX 2.0 Document Engine
+                    A4 PDF Document Engine
                   </h4>
                   <p className="text-xs text-neutral-500 font-normal mt-1.5 leading-relaxed">
-                    Compiles publication-grade A4 resumes with zero font
-                    distortion, deterministic margin math, and 300 DPI vector
-                    PDF output.
+                    Compiles publication-grade A4 resumes with structured sections and A4 margins. Review the exported PDF
+                    before sharing it.
                   </p>
                 </div>
 
@@ -1507,10 +1506,10 @@ export default function Home() {
               </div>
 
               <div className="pt-3 text-[11px] font-mono text-neutral-400 flex items-center justify-between border-t border-neutral-100">
-                <span>LATEX ENGINE STATUS</span>
+                <span>PDF EXPORT DEMO</span>
                 <span className="text-emerald-600 font-bold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ACTIVE (300 DPI)</span>
+                  <span>EXAMPLE PREVIEW</span>
                 </span>
               </div>
             </motion.div>
@@ -1679,7 +1678,7 @@ export default function Home() {
             },
             {
               icon: FileText,
-              title: "LaTeX Resume Builder",
+              title: "A4 Resume Builder",
               description:
                 "Craft clean, ATS-formatted resumes with live A4 preview, section reordering, and instant PDF download.",
             },
@@ -1768,7 +1767,7 @@ export default function Home() {
 
         <div className="max-w-6xl mx-auto text-center space-y-10">
           <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-neutral-400 font-bold block">
-            TRUSTED BY INNOVATIVE TEAMS WORLDWIDE
+            ILLUSTRATIVE COMPANY EXAMPLES
           </span>
 
           {/* Continuous Animated Horizontal Marquee Ticker */}
@@ -1822,14 +1821,14 @@ export default function Home() {
           {/* Section Header */}
           <div className="text-center space-y-4 max-w-2xl mx-auto">
             <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-500 font-bold block">
-              ENTERPRISE REVIEWS
+              ILLUSTRATIVE WORKFLOWS
             </span>
             <h2 className="text-4xl sm:text-5xl font-black text-neutral-950 tracking-tight leading-[1.12]">
-              Trusted by Leaders Worldwide
+              One workspace for career preparation
             </h2>
             <p className="text-neutral-500 text-sm sm:text-base font-normal leading-relaxed">
-              Discover how top engineering managers, hiring directors, and
-              candidate applicants accelerate placement velocity.
+              Examples of how candidates and teams can use the platform.
+              These examples are illustrative, not customer endorsements.
             </p>
           </div>
 
@@ -1838,24 +1837,24 @@ export default function Home() {
             {[
               {
                 quote:
-                  '"Vantory completely transformed how we handle candidate screening and LaTeX ATS scoring. The real-time mock interview feedback saved our engineering team 40+ hours per quarter."',
-                author: "Sarah Jenkins",
-                role: "VP of Talent, GlobalBank",
+                  '"Build a resume, compare its evidence with a target job, and practise explaining the skills that need more preparation."',
+                author: "Candidate workflow",
+                role: "Illustrative example",
                 initial: "S",
               },
               {
                 quote:
-                  '"The monochrome design is not just beautiful, it\'s highly functional. We trained our staff in minutes, and the analytics dashboard gives us instant insights."',
-                author: "Marcus Chen",
-                role: "Operations Director, TechNova",
+                  '"Review submitted applications and track their status through the employer workspace."',
+                author: "Employer workflow",
+                role: "Illustrative example",
                 initial: "M",
                 highlighted: true,
               },
               {
                 quote:
-                  '"Finally, a career acceleration and recruitment platform that doesn\'t look like it was built in 2010. Vantory brings modern SaaS architecture to a legacy industry."',
-                author: "Elena Rodriguez",
-                role: "Founder, Pinnacle Events",
+                  '"Organize candidate preparation and review the summaries candidates choose to share with their institute."',
+                author: "Institute workflow",
+                role: "Illustrative example",
                 initial: "E",
               },
             ].map((testimonial, index) => (
@@ -1927,8 +1926,9 @@ export default function Home() {
             <h2 className="text-3xl sm:text-5xl font-extrabold text-neutral-950 tracking-tight leading-tight">
               Flexible Plans for Every Career Goal
             </h2>
+            <p className="text-sm text-neutral-600">Plan details are previews. Online purchases and subscriptions are not enabled.</p>
             <p className="text-xs sm:text-sm text-neutral-500 font-normal leading-relaxed">
-              Start building publication-ready LaTeX resumes and practicing AI
+              Start building publication-ready A4 resumes and practicing AI
               interviews for free, or scale with enterprise employer tools.
             </p>
           </motion.div>
@@ -1955,7 +1955,7 @@ export default function Home() {
                 <div className="space-y-2.5 pt-4 border-t border-neutral-100 text-xs font-mono text-neutral-700">
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>1 LaTeX Resume & A4 Vector Export</span>
+                    <span>1 A4 Resume & A4 Vector Export</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -1989,7 +1989,7 @@ export default function Home() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full font-mono text-[10px] font-extrabold border border-emerald-500/30 tracking-wider">
-                    MOST POPULAR
+                    PLANNED PRO FEATURES
                   </span>
                   <Sparkles className="w-5 h-5 text-emerald-400" />
                 </div>
@@ -2009,7 +2009,7 @@ export default function Home() {
                 <div className="space-y-2.5 pt-4 border-t border-neutral-800 text-xs font-mono text-neutral-300">
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Unlimited LaTeX Resumes & Custom Templates</span>
+                    <span>Unlimited A4 Resumes & Custom Templates</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Check className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -2034,7 +2034,7 @@ export default function Home() {
                 href="/register?role=candidate"
                 className="w-full py-3.5 bg-white text-neutral-950 font-extrabold text-xs rounded-full hover:bg-neutral-100 transition-all text-center flex items-center justify-center gap-2 shadow-lg"
               >
-                <span>Upgrade to Pro Suite</span>
+                <span>Create candidate account</span>
                 <ArrowRight className="w-4 h-4 text-neutral-950" />
               </Link>
             </motion.div>
@@ -2129,16 +2129,16 @@ export default function Home() {
                 01
               </div>
               <h3 className="text-xl font-extrabold text-neutral-950">
-                LaTeX 2.0 Vector Compilation
+                A4 PDF Vector Compilation
               </h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
                 The document compiler uses strict A4 margin mathematics to
                 eliminate text truncation and font overlap. PDF output is
-                compiled natively to 300 DPI vector specifications to guarantee
-                100% readability across top Applicant Tracking Systems.
+                generated from structured resume data with PDFKit. Review the
+                exported PDF before submitting it; employer parsing can vary.
               </p>
               <div className="p-3 bg-neutral-950 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto">
-                <code>{`pdflatex -interaction=nonstopmode -output-directory=/tmp resume.tex`}</code>
+                <code>{`Structured resume data → PDFKit → A4 PDF`}</code>
               </div>
             </div>
 
@@ -2151,13 +2151,12 @@ export default function Home() {
                 Voice AI Speech Matrix & WPM
               </h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
-                Speech input is evaluated in real-time via Web Speech APIs. The
-                engine calculates word velocity (WPM), technical keyword
-                density, and filler word ratios to generate adaptive 7-day
-                preparation roadmaps.
+                Where supported by your browser, speech input creates a
+                transcript. Interview feedback assesses answer content; voice
+                measurements do not establish technical skill or hiring readiness.
               </p>
               <div className="p-3 bg-neutral-950 text-purple-400 font-mono text-[11px] rounded-xl overflow-x-auto">
-                <code>{`evaluateSpeech({ transcript, durationMs }) => { wpm: 142, depth: 'HIGH' }`}</code>
+                <code>{`Transcript → answer evaluation → practice suggestions`}</code>
               </div>
             </div>
 
@@ -2225,8 +2224,8 @@ export default function Home() {
           <div className="lg:col-span-7 space-y-4 text-left">
             {[
               {
-                q: "How does the LaTeX ATS Resume Builder work?",
-                a: "Our resume builder enforces LaTeX publication standards in real-time. As you enter your summary, experience, and skills, the engine generates an ATS-optimized single-page document layout with live A4 preview and instant 300 DPI PDF compilation.",
+                q: "How does the A4 ATS Resume Builder work?",
+                a: "Our resume builder enforces A4 publication standards in real-time. As you enter your summary, experience, and skills, the engine generates an structured document layout with live A4 preview and downloadable A4 PDF export.",
               },
               {
                 q: "How realistic is the AI Mock Interviewer?",
@@ -2234,7 +2233,7 @@ export default function Home() {
               },
               {
                 q: "How do verified companies post jobs and review applicants?",
-                a: "Verified corporate employers log into the Employer Portal, create job listings with Indian Rupee (₹) salary ranges, receive applicant profiles in real-time, inspect formatted A4 LaTeX candidate resumes, attach internal hiring notes, and advance candidate statuses.",
+                a: "Verified corporate employers log into the Employer Portal, create job listings with Indian Rupee (₹) salary ranges, receive applicant profiles in real-time, inspect formatted A4 candidate resumes, attach internal hiring notes, and advance candidate statuses.",
               },
               {
                 q: "What level of ATS keyword matching is available?",
@@ -2365,7 +2364,7 @@ export default function Home() {
                     href="/resume"
                     className="hover:text-white transition-colors block"
                   >
-                    LaTeX Resume Builder
+                    A4 Resume Builder
                   </Link>
                 </li>
                 <li>
@@ -2430,7 +2429,7 @@ export default function Home() {
                     href="/resume"
                     className="hover:text-white transition-colors block"
                   >
-                    LaTeX Templates
+                    A4 Templates
                   </Link>
                 </li>
                 <li>
@@ -2509,23 +2508,23 @@ export default function Home() {
               <ul className="space-y-3.5 text-[13px] text-neutral-400 font-normal">
                 <li>
                   <Link
-                    href="/"
+                    href="/privacy"
                     className="hover:text-white transition-colors block"
                   >
-                    Privacy Policy
+                    Privacy & data use
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="/"
+                    href="/terms"
                     className="hover:text-white transition-colors block"
                   >
-                    Terms of Service
+                    Usage guidelines
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="/"
+                    href="/security"
                     className="hover:text-white transition-colors block"
                   >
                     Security
@@ -2533,10 +2532,10 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
-                    href="/"
+                    href="/cookies"
                     className="hover:text-white transition-colors block"
                   >
-                    Cookie Policy
+                    Cookies & local storage
                   </Link>
                 </li>
               </ul>

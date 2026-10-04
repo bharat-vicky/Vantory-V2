@@ -3,6 +3,37 @@ import assert from "node:assert/strict";
 import { enhanceResumeText } from "../lib/ai/gemini";
 import { checkRateLimit } from "../lib/rate-limit";
 import { preservesResumeFacts } from "../lib/ai/factual-rewrite";
+import { generateGeminiJson, DEFAULT_GEMINI_MODEL } from "../lib/ai/structured-gemini";
+
+test("Unavailable legacy Gemini model recovers with a supported model and reports the actual model", async () => {
+  const original = globalThis.fetch;
+  process.env.GEMINI_API_KEY = "fixture-secret";
+  const urls: string[] = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return urls.length === 1 ? new Response("{}",{status:404}) : new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:'{"ok":true}'}]}}]}));
+  };
+  try {
+    const result = await generateGeminiJson({model:"gemini-2.5-flash",system:"fixture",input:{},validate:v=>v});
+    assert.equal(result.model, DEFAULT_GEMINI_MODEL);
+    assert.ok(urls[1].includes(DEFAULT_GEMINI_MODEL));
+    assert.ok(urls.every(url=>!url.includes("fixture-secret")));
+  } finally {globalThis.fetch=original;delete process.env.GEMINI_API_KEY;}
+});
+
+test("Invalid AI JSON is retried, but cannot produce a successful assessment", async () => {
+  const original = globalThis.fetch;process.env.GEMINI_API_KEY="fixture";let calls=0;
+  globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:"invalid JSON"}]}}]}));};
+  try {await assert.rejects(()=>generateGeminiJson({system:"fixture",input:{},validate:v=>v}),/unavailable/);assert.equal(calls,2);}
+  finally {globalThis.fetch=original;delete process.env.GEMINI_API_KEY;}
+});
+
+test("AI authorization errors are not retried or disguised by a model switch", async () => {
+  const original=globalThis.fetch;process.env.GEMINI_API_KEY="fixture";let calls=0;
+  globalThis.fetch=async()=>{calls++;return new Response("{}",{status:403});};
+  try {await assert.rejects(()=>generateGeminiJson({system:"fixture",input:{},validate:v=>v}),/unavailable/);assert.equal(calls,1);}
+  finally {globalThis.fetch=original;delete process.env.GEMINI_API_KEY;}
+});
 
 test("Resume rewrites cannot invent leadership, outcomes, quality or metrics",()=>{
  assert.equal(preservesResumeFacts("Built Python applications", "Led Python applications"),false);

@@ -13,6 +13,7 @@
     "lint": "next lint",
     "security:check": "node scripts/check-repo-secrets.mjs",
     "security:history": "node scripts/check-repo-secrets.mjs --history",
+    "auth:check": "node scripts/check-auth-connectivity.mjs",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",

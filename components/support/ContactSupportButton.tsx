@@ -23,7 +23,7 @@ export function ContactSupportButton({ className }: { className?: string }) {
           <PhoneCall className="w-4 h-4 text-white shrink-0 group-hover:rotate-12 transition-transform" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
         </div>
-        <span>Contact Us</span>
+        <span className="hidden sm:inline">Contact Us</span>
       </button>
 
       {/* Support & Direct Contact Modal */}

@@ -1,4 +1,19 @@
 import test from "node:test";
+import {previewPageCount} from "../lib/resume/preview-pages";
+import {saveResumeContent} from "../lib/resume/resume-service";
+
+test("Invalid resume names cannot silently save a mismatched library title",async()=>{
+ await assert.rejects(()=>saveResumeContent("owner","resume",{title:" "} as any),/1–120 characters/);
+ await assert.rejects(()=>saveResumeContent("owner","resume",{title:"x".repeat(121)} as any),/1–120 characters/);
+});
+
+test("A4 preview rounding does not create an empty page, but real overflow does",()=>{
+ const width=793.7,height=width*297/210;
+ assert.equal(previewPageCount(width,height+0.7),1);
+ assert.equal(previewPageCount(width,height+10),2);
+ assert.equal(previewPageCount(width,height*2+0.5),2);
+ assert.equal(previewPageCount(0,height),1);
+});
 import assert from "node:assert";
 import { escapeLatex } from "../lib/resume/latex/escapeLatex";
 import { generateLatexSource } from "../lib/resume/latex/renderer";

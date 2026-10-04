@@ -117,6 +117,10 @@ export async function saveResumeContent(
   data: ResumeData,
   expectedUpdatedAt?: string,
 ) {
+  if (typeof data.title !== "string" || !data.title.trim() || data.title.trim().length > 120) {
+    throw new ApiError("Give this resume a name of 1–120 characters before saving.");
+  }
+  data = { ...data, title: data.title.trim() };
   const existing = await db.resume.findFirst({
     where: { id: resumeId, userId },
   });

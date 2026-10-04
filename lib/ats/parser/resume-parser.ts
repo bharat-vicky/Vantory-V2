@@ -250,11 +250,11 @@ export function parsePlainTextResume(text: string): UnifiedParsedResume {
 
   const experienceLines = sectionContent.get("Experience") || [];
   const experienceBullets = experienceLines
-    .map((line) => line.replace(/^[â€¢*-]\s*/, "").trim())
+    .map((line) => line.replace(/^[•*-]\s*/, "").trim())
     .filter(Boolean);
   const projectLines = sectionContent.get("Projects") || [];
   const projectBullets = projectLines
-    .map((line) => line.replace(/^[â€¢*-]\s*/, "").trim())
+    .map((line) => line.replace(/^[•*-]\s*/, "").trim())
     .filter(Boolean);
   const summary = sectionContent.get("Summary")?.join(" ") || "";
   const isSectionHeading = (line: string) =>

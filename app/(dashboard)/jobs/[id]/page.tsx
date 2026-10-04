@@ -222,11 +222,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   <MapPin className="w-3.5 h-3.5 text-neutral-400" />
                   <span>{job.location}</span>
                 </span>
-                <span>â€¢</span>
+                <span>•</span>
                 <span>{job.workMode}</span>
-                <span>â€¢</span>
+                <span>•</span>
                 <span>{job.type}</span>
-                <span>â€¢</span>
+                <span>•</span>
                 <span className="text-neutral-950 font-bold">{job.salary || "Competitive"}</span>
               </div>
             </div>

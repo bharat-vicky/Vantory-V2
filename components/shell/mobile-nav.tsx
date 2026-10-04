@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, ChevronDown, ChevronUp, User, Settings, LogOut } from "lucide-react";
@@ -24,6 +24,24 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    drawerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex="0"]') || []).filter(element=>element.getClientRects().length>0);
+      const first = controls[0], last = controls[controls.length-1];
+      if (!first) return;
+      if (!drawerRef.current?.contains(document.activeElement) || (event.shiftKey && document.activeElement===first)) {event.preventDefault(); (event.shiftKey ? last : first).focus();}
+      else if (!event.shiftKey && document.activeElement===last) {event.preventDefault(); first.focus();}
+    };
+    document.addEventListener("keydown",handleKeyDown);
+    return ()=>{document.removeEventListener("keydown",handleKeyDown);previousFocus?.focus();};
+  },[isOpen,onClose]);
 
   const isCompanyContext = pathname.startsWith("/company") || user?.role === "COMPANY_ADMIN";
   const isInstituteContext=pathname.startsWith("/institute") || user?.role==="INSTITUTE_ADMIN" || user?.role==="SUPER_ADMIN";
@@ -90,6 +108,10 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
 
           {/* Drawer Sheet */}
           <motion.div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation drawer"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -113,6 +135,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close navigation drawer"
                 className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -193,9 +216,12 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
                   </div>
                 )}
 
-                <div
+                <button
+                  type="button"
+                  aria-expanded={isUserDropdownOpen}
+                  aria-label="Account menu"
                   onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                  className="p-3 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-all select-none"
+                  className="w-full text-left p-3 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-all select-none"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-neutral-950 text-white font-extrabold flex items-center justify-center text-xs shadow-inner shrink-0">
@@ -206,7 +232,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
                         {user?.name || (isCompanyContext ? "Corporate Employer" : "Candidate")}
                       </h5>
                       <p className="text-[10px] text-neutral-500 truncate font-mono">
-                        {user?.email || (isCompanyContext ? "hr@company.com" : "candidate@vantory.com")}
+                        {user?.email || "Loading account…"}
                       </p>
                     </div>
                   </div>
@@ -216,7 +242,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
                   ) : (
                     <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
                   )}
-                </div>
+                </button>
               </div>
             </div>
           </motion.div>
