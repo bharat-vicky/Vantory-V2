@@ -190,7 +190,7 @@ export default function InstituteDashboardPage() {
                 {loading ? "..." : (data?.offersCount || 0) + (data?.placedCount || 0)}
               </div>
               <p className="text-xs text-neutral-500 mt-1 font-mono">
-                Verified Hire Outcomes
+                Recorded Offers & Placement
               </p>
             </Card>
           </div>
@@ -225,7 +225,7 @@ export default function InstituteDashboardPage() {
               </div>
 
               <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl space-y-1">
-                <div className="text-[10px] font-mono text-neutral-400 font-bold uppercase">ATS VERIFIED</div>
+                <div className="text-[10px] font-mono text-neutral-400 font-bold uppercase">ATS MATCH SCORE</div>
                 <div className="text-2xl font-black text-neutral-950">{data?.funnel?.atsReadyCount || 0}</div>
                 <div className="text-[10px] text-neutral-500 font-mono">Avg ATS &ge; 75</div>
               </div>
@@ -301,7 +301,7 @@ export default function InstituteDashboardPage() {
                 </div>
               ) : (
                 <div className="py-12 text-center text-xs font-mono text-neutral-400">
-                  No active student applications recorded yet.
+                  No shared student applications recorded yet.
                 </div>
               )}
             </Card>

@@ -269,7 +269,7 @@ export default function StudentImportPage() {
                     <span>Select or Drag CSV Roster File</span>
                   </h3>
                   <p className="text-xs text-neutral-500">
-                    CSV file must contain header columns: <code className="font-mono text-neutral-950 bg-neutral-100 px-2 py-0.5 rounded-md">studentId, fullName, email, department, course, graduationYear</code>.
+                    Required headers: fullName and email. Optional columns: <code className="font-mono text-neutral-950 bg-neutral-100 px-2 py-0.5 rounded-md">studentId, department, course, graduationYear</code>.
                   </p>
                 </div>
 
@@ -311,7 +311,7 @@ export default function StudentImportPage() {
                     {isParsing ? "Parsing CSV File..." : file ? file.name : "Click to browse or drag & drop CSV file here"}
                   </p>
                   <p className="text-xs text-neutral-400 font-mono">
-                    Supported file format: .csv â€¢ Maximum size: 10MB
+                    Supported file format: .csv • Maximum size: 10MB
                   </p>
                 </div>
 
