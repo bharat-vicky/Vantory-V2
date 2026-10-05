@@ -9,13 +9,14 @@ export function InterviewScheduler({applicationId,status,updatedAt,interview,dis
   const [mode,setMode]=useState(interview?.mode || "ONLINE");
   const [joiningDetails,setJoiningDetails]=useState(interview?.joiningDetails || ""),[interviewer,setInterviewer]=useState(interview?.interviewer || ""),[message,setMessage]=useState(interview?.message || "");
   const [busy,setBusy]=useState(false),[notice,setNotice]=useState("");
+  const [confirmCancel,setConfirmCancel]=useState(false);
   const allowed=["SHORTLISTED","INTERVIEW"].includes(status);
   async function save(action:"schedule"|"cancel") {
     setBusy(true);setNotice("");
     try {
       const res=await fetch(`/api/company/applications/${applicationId}/interview`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,expectedUpdatedAt:updatedAt,interview:{localDateTime,timeZone,durationMinutes,mode,joiningDetails,interviewer,message}})});
       const result=await res.json();if (!res.ok || !result.success) throw new Error(result.error || "Could not update the interview.");
-      onSaved(result);setNotice(action === "cancel" ? "Interview cancelled. Candidate tracking has been updated." : "Interview saved. Candidate tracking has been updated.");
+      onSaved(result);setConfirmCancel(false);setNotice(action === "cancel" ? "Interview cancelled. Candidate tracking has been updated." : "Interview saved. Candidate tracking has been updated.");
     } catch (error) {setNotice(error instanceof Error ? error.message : "Could not update the interview.");} finally {setBusy(false);}
   }
   return <section className="space-y-3 border-t pt-4"><h3 className="font-bold text-sm">Interview scheduling</h3>
@@ -31,8 +32,9 @@ export function InterviewScheduler({applicationId,status,updatedAt,interview,dis
       <label className="block">Interviewer (optional)<input maxLength={150} value={interviewer} onChange={e=>setInterviewer(e.target.value)} className="block w-full border rounded-lg p-2"/></label>
       <label className="block">Message to candidate (optional)<textarea maxLength={2000} rows={3} value={message} onChange={e=>setMessage(e.target.value)} className="block w-full border rounded-lg p-2"/></label>
       <div className="flex flex-wrap gap-3"><button type="button" onClick={()=>save("schedule")} className="bg-neutral-950 text-white rounded-lg px-3 py-2">{busy ? "Saving…" : interview?.state === "SCHEDULED" ? "Reschedule interview" : "Schedule interview"}</button>
-        {interview?.state === "SCHEDULED" && <button type="button" onClick={()=>{if (window.confirm("Cancel this interview? The candidate will see the cancellation.")) save("cancel");}} className="border rounded-lg px-3 py-2">Cancel interview</button>}
+        {interview?.state === "SCHEDULED" && <button type="button" onClick={()=>setConfirmCancel(true)} className="border rounded-lg px-3 py-2">Cancel interview</button>}
       </div>
+      {confirmCancel && <div className="border rounded-lg p-3 space-y-3" role="group" aria-label="Confirm interview cancellation"><p>Cancel this interview? The candidate will see the cancellation.</p><div className="flex gap-3"><button type="button" onClick={()=>save("cancel")} className="bg-neutral-950 text-white rounded-lg px-3 py-2">Confirm cancellation</button><button type="button" onClick={()=>setConfirmCancel(false)} className="border rounded-lg px-3 py-2">Keep interview</button></div></div>}
     </fieldset> : !interview && <p className="text-sm text-neutral-500">Shortlist the candidate before scheduling an interview.</p>}
   </section>;
 }
