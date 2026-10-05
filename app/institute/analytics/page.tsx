@@ -153,7 +153,7 @@ function InstituteAnalyticsContent() {
                 Placement Analytics & Reports
               </h1>
               <p className="text-xs text-neutral-500 font-mono mt-0.5">
-                Unified Campus Placement Intelligence, Department Performance & Verified CSV Data Exports
+                Campus Placement Activity, Department Performance & Consent-aware CSV Exports
               </p>
             </div>
 
@@ -244,7 +244,7 @@ function InstituteAnalyticsContent() {
                       ) : (
                         <tr>
                           <td colSpan={5} className="py-8 text-center text-xs text-neutral-400">
-                            No department breakdown available.
+                            No shared department activity available.
                           </td>
                         </tr>
                       )}
@@ -287,7 +287,7 @@ function InstituteAnalyticsContent() {
                   </div>
                 ) : (
                   <div className="py-8 text-center text-xs font-mono text-neutral-400">
-                    No technical skills tagged in current student roster.
+                    No technical skills available from students sharing analytics.
                   </div>
                 )}
               </Card>
@@ -303,7 +303,7 @@ function InstituteAnalyticsContent() {
                     Institutional Reports & Data Export
                   </h2>
                   <p className="text-xs text-neutral-500 font-mono mt-0.5">
-                    Generate Verified Placement Documentation & CSV Roster Exports
+                    Export Recorded Placement Activity & Shared Student Metrics
                   </p>
                 </div>
 
