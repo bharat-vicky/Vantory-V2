@@ -881,6 +881,8 @@ export async function getInstituteAnalytics(adminUserId: string) {
     .slice(0, 10);
 
   return {
+    totalMembers: await db.user.count({where:{instituteId:institute.id,role:{in:["CANDIDATE","INSTITUTE_STUDENT"]}}}),
+    consentingStudents: studentData.length,
     funnel,
     departmentAnalytics,
     topSkills,

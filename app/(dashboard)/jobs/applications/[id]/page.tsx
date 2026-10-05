@@ -245,7 +245,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 <div key={idx} className="relative pl-6 space-y-1">
                   <div className="w-3 h-3 rounded-full bg-neutral-950 border-2 border-white absolute -left-[6.5px] top-1"></div>
                   <div className="flex items-center justify-between font-mono text-xs">
-                    <span className="font-bold text-neutral-950">{event.title}</span>
+                    <span className="font-bold text-neutral-950">{event.status === "INTERVIEW" && event.title === "Interview Scheduled" ? "Moved to interview stage" : event.title}</span>
                     <span className="text-[10px] text-neutral-500">
                       {new Date(event.timestamp).toLocaleString()}
                     </span>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ResumePreview } from "@/components/resume/ResumePreview";
 import { ResumeData } from "@/lib/resume/types";
+import { APPLICATION_TRANSITIONS } from "@/lib/application-state";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 
 interface CompanyJobItem {
@@ -36,6 +37,7 @@ interface CandidateApplicationItem {
   jobId: string;
   jobTitle: string;
   appliedAt: string;
+  updatedAt: string;
   status: string;
   coverNote?: string;
   employerNotes?: string;
@@ -68,6 +70,30 @@ export default function CompanyApplicationsPage() {
   const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [mounted, setMounted] = useState<boolean>(false);
+  const notesDirty = Boolean(selectedApplication && employerNoteInput !== (selectedApplication.employerNotes || ""));
+  const closeReview = useCallback(() => {
+    if (!isUpdatingStatus && (!notesDirty || window.confirm("Discard unsaved private notes?"))) setSelectedApplication(null);
+  }, [notesDirty, isUpdatingStatus]);
+  useEffect(() => {
+    if (!notesDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {event.preventDefault();};
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [notesDirty]);
+  const saveNotes = async () => {
+    if (!selectedApplication) return;
+    setIsUpdatingStatus(true); setStatusUpdateError("");
+    try {
+      const res = await fetch(`/api/company/applications/${selectedApplication.id}`, {method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:employerNoteInput,expectedUpdatedAt:selectedApplication.updatedAt})});
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || "Could not save notes.");
+      const saved = { ...selectedApplication, employerNotes: result.application.notes || "", updatedAt: result.application.updatedAt };
+      setSelectedApplication(saved); setEmployerNoteInput(saved.employerNotes);
+      setApplications(items => items.map(item => item.id === saved.id ? saved : item));
+      setTopBannerMsg("Private notes saved.");
+    } catch (error) {setStatusUpdateError(error instanceof Error ? error.message : "Could not save notes.");}
+    finally {setIsUpdatingStatus(false);}
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -84,7 +110,7 @@ export default function CompanyApplicationsPage() {
           setActiveResumePreviewData(null);
           setActiveResumeId(null);
         } else if (selectedApplication) {
-          setSelectedApplication(null);
+          closeReview();
         }
       }
     };
@@ -92,7 +118,7 @@ export default function CompanyApplicationsPage() {
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedApplication, activeResumePreviewData]);
+  }, [selectedApplication, activeResumePreviewData, closeReview]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -146,6 +172,7 @@ export default function CompanyApplicationsPage() {
         body: JSON.stringify({
           status: newStatus,
           note: employerNoteInput,
+          expectedUpdatedAt: selectedApplication?.updatedAt,
         }),
       });
 
@@ -167,7 +194,8 @@ export default function CompanyApplicationsPage() {
       setTopBannerMsg(`🎉 Candidate application status successfully updated to ${statusName}!`);
 
       if (selectedApplication && selectedApplication.id === applicationId) {
-        setSelectedApplication((prev) => (prev ? { ...prev, status: newStatus, employerNotes: employerNoteInput } : null));
+        setSelectedApplication((prev) => (prev ? { ...prev, status: newStatus, employerNotes: json.application.notes || "", updatedAt: json.application.updatedAt } : null));
+        setEmployerNoteInput(json.application.notes || "");
       }
 
       setApplications((prev) =>
@@ -288,6 +316,7 @@ export default function CompanyApplicationsPage() {
             <option value="UNDER_REVIEW">UNDER REVIEW</option>
             <option value="SHORTLISTED">SHORTLISTED</option>
             <option value="INTERVIEW">INTERVIEW</option>
+            <option value="SELECTED">SELECTED</option>
             <option value="OFFERED">OFFERED</option>
             <option value="REJECTED">REJECTED</option>
             <option value="WITHDRAWN">WITHDRAWN</option>
@@ -395,7 +424,7 @@ export default function CompanyApplicationsPage() {
             <div
               className="fixed inset-0 z-[99999] bg-neutral-950/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 selection:bg-neutral-900 selection:text-white"
               onClick={(e) => {
-                if (e.target === e.currentTarget) setSelectedApplication(null);
+                if (e.target === e.currentTarget) closeReview();
               }}
             >
             {/* Bounded Fixed Viewport Modal Card */}
@@ -415,7 +444,7 @@ export default function CompanyApplicationsPage() {
                 </div>
 
                 <button
-                  onClick={() => setSelectedApplication(null)}
+                  onClick={closeReview}
                   className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-950 hover:bg-neutral-200 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -556,11 +585,17 @@ export default function CompanyApplicationsPage() {
                   </label>
                   <textarea
                     rows={3}
+                    maxLength={2000}
+                    disabled={isUpdatingStatus}
                     value={employerNoteInput}
                     onChange={(e) => setEmployerNoteInput(e.target.value)}
                     placeholder="Add private evaluation notes for engineering leads..."
                     className="w-full bg-white border border-neutral-300 rounded-xl p-3 text-neutral-950 font-mono focus:outline-none focus:border-neutral-950"
                   />
+                  <div className="flex items-center gap-3">
+                    <button onClick={saveNotes} disabled={!notesDirty || isUpdatingStatus} className="bg-neutral-950 text-white px-3 py-2 rounded-lg disabled:opacity-40">{isUpdatingStatus ? "Saving…" : "Save private notes"}</button>
+                    <span role="status">{notesDirty ? "Unsaved changes" : "Notes saved"}</span>
+                  </div>
                 </div>
               </div>
 
@@ -572,7 +607,7 @@ export default function CompanyApplicationsPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {selectedApplication.status === "APPLIED" && (
+                  {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("UNDER_REVIEW") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "UNDER_REVIEW")}
                       disabled={isUpdatingStatus}
@@ -582,7 +617,7 @@ export default function CompanyApplicationsPage() {
                     </button>
                   )}
 
-                  {(selectedApplication.status === "APPLIED" || selectedApplication.status === "UNDER_REVIEW") && (
+                  {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("SHORTLISTED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "SHORTLISTED")}
                       disabled={isUpdatingStatus}
@@ -592,7 +627,7 @@ export default function CompanyApplicationsPage() {
                     </button>
                   )}
 
-                  {selectedApplication.status !== "INTERVIEW" && selectedApplication.status !== "SELECTED" && selectedApplication.status !== "OFFERED" && selectedApplication.status !== "REJECTED" && selectedApplication.status !== "WITHDRAWN" && (
+                  {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("INTERVIEW") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "INTERVIEW")}
                       disabled={isUpdatingStatus}
@@ -602,7 +637,7 @@ export default function CompanyApplicationsPage() {
                     </button>
                   )}
 
-                  {selectedApplication.status !== "SELECTED" && selectedApplication.status !== "OFFERED" && selectedApplication.status !== "REJECTED" && selectedApplication.status !== "WITHDRAWN" && (
+                  {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("SELECTED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "SELECTED")}
                       disabled={isUpdatingStatus}
@@ -612,7 +647,7 @@ export default function CompanyApplicationsPage() {
                     </button>
                   )}
 
-                  {selectedApplication.status !== "OFFERED" && selectedApplication.status !== "REJECTED" && selectedApplication.status !== "WITHDRAWN" && (
+                  {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("OFFERED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "OFFERED")}
                       disabled={isUpdatingStatus}
@@ -622,7 +657,7 @@ export default function CompanyApplicationsPage() {
                     </button>
                   )}
 
-                  {selectedApplication.status !== "REJECTED" && selectedApplication.status !== "WITHDRAWN" && (
+                  {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("REJECTED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "REJECTED")}
                       disabled={isUpdatingStatus}

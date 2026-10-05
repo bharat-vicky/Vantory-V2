@@ -27,6 +27,7 @@ interface CompanyJobDetailData {
   title: string;
   company: string;
   companyLogo?: string;
+  companyUrl?: string;
   location: string;
   workMode: string;
   type: string;
@@ -225,15 +226,15 @@ export default function CompanyJobDetailPage({ params }: { params: Promise<{ id:
 
           <div className="flex flex-wrap gap-2 text-xs font-mono text-neutral-500 items-center">
             <span className="font-bold text-neutral-900">{job.company}</span>
-            <a
-              href={`https://${job.company.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`}
+            {job.companyUrl && /^https?:\/\//i.test(job.companyUrl) && <a
+              href={job.companyUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-neutral-600 hover:text-neutral-950 flex items-center gap-1 font-bold underline underline-offset-2 transition-colors"
             >
               <Globe className="w-3.5 h-3.5 text-neutral-500" />
-              <span>{job.company.toLowerCase().replace(/[^a-z0-9]/g, "")}.com</span>
-            </a>
+              <span>Company website</span>
+            </a>}
             <span>•</span>
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-neutral-400" />

@@ -351,7 +351,7 @@ export function Sidebar({ className }: { className?: string }) {
                 {!isCompanyContext && (
                   <>
                     <Link
-                      href="/profile"
+                      href={isInstituteContext ? "/institute/settings" : isCompanyContext ? "/company/profile" : "/profile"}
                       onClick={() => setIsUserDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all font-medium text-neutral-700 hover:text-neutral-950 hover:bg-neutral-50"
                     >
@@ -360,7 +360,7 @@ export function Sidebar({ className }: { className?: string }) {
                     </Link>
 
                     <Link
-                      href="/settings"
+                      href={isInstituteContext ? "/institute/settings" : isCompanyContext ? "/company/profile" : "/settings"}
                       onClick={() => setIsUserDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all font-medium text-neutral-700 hover:text-neutral-950 hover:bg-neutral-50"
                     >

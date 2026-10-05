@@ -17,7 +17,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "test": "node --import tsx --import ./tests/isolated-env.mjs --test tests/candidate-upgrades.test.ts tests/ai.test.ts tests/ats.test.ts tests/auth-multi-role.test.ts tests/auth-ui.test.ts tests/auth.test.ts tests/company-jobs.test.ts tests/company.test.ts tests/foundation.test.ts tests/google-auth.test.ts tests/institute-api.test.ts tests/institute-service.test.ts tests/interview.test.ts tests/isolation.test.ts tests/jobs.test.ts tests/pdf-engine.test.ts tests/preparation.test.ts tests/resume.test.ts tests/support.test.ts",
+    "test": "node --import tsx --import ./tests/isolated-env.mjs --test tests/candidate-upgrades.test.ts tests/ai.test.ts tests/ats.test.ts tests/auth-multi-role.test.ts tests/auth-ui.test.ts tests/auth.test.ts tests/company-jobs.test.ts tests/company.test.ts tests/foundation.test.ts tests/google-auth.test.ts tests/institute-api.test.ts tests/institute-service.test.ts tests/student-csv.test.ts tests/interview.test.ts tests/isolation.test.ts tests/jobs.test.ts tests/pdf-engine.test.ts tests/preparation.test.ts tests/resume.test.ts tests/support.test.ts",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {

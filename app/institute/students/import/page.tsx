@@ -19,16 +19,7 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { Header } from "@/components/shell/header";
 import { Button } from "@/components/ui/button";
 
-interface CsvParsedRow {
-  studentId: string;
-  name: string;
-  email: string;
-  department: string;
-  course: string;
-  graduationYear: number;
-  status: "VALID" | "DUPLICATE" | "INVALID";
-  reason?: string;
-}
+import { parseStudentCsv, type StudentCsvRow as CsvParsedRow } from "@/lib/institute/student-csv";
 
 const SAMPLE_CSV_CONTENT = `studentId,fullName,email,department,course,graduationYear
 CS-2025-01,Anupam Singh,anupam.singh@campus.edu,Computer Science,B.Tech,2025
@@ -60,91 +51,10 @@ export default function StudentImportPage() {
     setIsParsing(true);
     setErrorMessage(null);
     setImportResult(null);
+    setParsedRows([]);
 
     try {
-      const cleanText = text.replace(/^\uFEFF/, "");
-      const lines = cleanText.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
-
-      if (lines.length < 2) {
-        setErrorMessage("CSV file must contain a header row and at least one student record.");
-        setIsParsing(false);
-        return;
-      }
-
-      const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
-      
-      // 1. Resolve Student ID Column Index
-      const idIdx = headers.findIndex(
-        (h) => h === "studentid" || h === "id" || h === "roll" || h.includes("id") || h.includes("roll")
-      );
-
-      // 2. Resolve Full Name Column Index (must not reuse idIdx)
-      let nameIdx = headers.findIndex(
-        (h, idx) =>
-          idx !== idIdx &&
-          (h === "fullname" || h === "name" || h === "studentname" || h.includes("fullname") || h.includes("name"))
-      );
-
-      if (nameIdx === -1) {
-        nameIdx = headers.findIndex(
-          (h, idx) => idx !== idIdx && (h.includes("student") || h.includes("candidate"))
-        );
-      }
-
-      // 3. Resolve Other Columns
-      const emailIdx = headers.findIndex((h) => h.includes("email"));
-      const deptIdx = headers.findIndex((h) => h.includes("dept") || h.includes("department") || h.includes("branch"));
-      const courseIdx = headers.findIndex((h) => h.includes("course") || h.includes("program") || h.includes("degree"));
-      const yearIdx = headers.findIndex((h) => h.includes("year") || h.includes("graduat") || h.includes("batch"));
-
-      if (emailIdx === -1 || nameIdx === -1) {
-        setErrorMessage("CSV header must contain 'fullName' (or 'name') and 'email' columns.");
-        setIsParsing(false);
-        return;
-      }
-
-      const seenEmails = new Set<string>();
-      const rows: CsvParsedRow[] = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-        if (cols.length < 2) continue;
-
-        const email = (cols[emailIdx] || "").toLowerCase().trim();
-        const name = cols[nameIdx] || "";
-        const studentId = idIdx !== -1 ? cols[idIdx] : "";
-        const department = deptIdx !== -1 ? cols[deptIdx] : "Computer Science";
-        const course = courseIdx !== -1 ? cols[courseIdx] : "B.Tech";
-        const gradYear = yearIdx !== -1 ? parseInt(cols[yearIdx], 10) || 2027 : 2027;
-
-        let status: "VALID" | "DUPLICATE" | "INVALID" = "VALID";
-        let reason: string | undefined = undefined;
-
-        if (!email || !email.includes("@")) {
-          status = "INVALID";
-          reason = "Invalid or missing email address.";
-        } else if (!name) {
-          status = "INVALID";
-          reason = "Missing candidate full name.";
-        } else if (seenEmails.has(email)) {
-          status = "DUPLICATE";
-          reason = "Duplicate email entry in CSV file.";
-        } else {
-          seenEmails.add(email);
-        }
-
-        rows.push({
-          studentId: studentId || `STU-${1000 + i}`,
-          name,
-          email,
-          department,
-          course,
-          graduationYear: gradYear,
-          status,
-          reason,
-        });
-      }
-
+      const rows = parseStudentCsv(text);
       setParsedRows(rows);
 
       // Auto-scroll to preview table
@@ -324,7 +234,7 @@ export default function StudentImportPage() {
                 <div>
                   <h3 className="text-xl font-bold">Roster Import Completed Successfully!</h3>
                   <p className="text-xs text-neutral-400 mt-1">
-                    Processed {importResult.importedCount} new candidate student accounts into your institute campus roster. ({importResult.skippedCount} duplicates/existing skipped).
+                    Created {importResult.invitedCount || 0} invitations awaiting candidate acceptance. {importResult.importedCount} existing members; {importResult.skippedCount} rows skipped.
                   </p>
                 </div>
               </div>
@@ -401,7 +311,7 @@ export default function StudentImportPage() {
                     {isParsing ? "Parsing CSV File..." : file ? file.name : "Click to browse or drag & drop CSV file here"}
                   </p>
                   <p className="text-xs text-neutral-400 font-mono">
-                    Supported file format: .csv • Maximum size: 10MB
+                    Supported file format: .csv â€¢ Maximum size: 10MB
                   </p>
                 </div>
 
@@ -486,7 +396,7 @@ export default function StudentImportPage() {
                         <td className="px-4 py-3 font-mono text-neutral-600">{r.email || "N/A"}</td>
                         <td className="px-4 py-3">{r.department}</td>
                         <td className="px-4 py-3 font-mono">{r.course}</td>
-                        <td className="px-4 py-3 font-mono">{r.graduationYear}</td>
+                        <td className="px-4 py-3 font-mono">{r.graduationYear ?? "Not supplied"}</td>
                         <td className="px-4 py-3 text-right">
                           {r.status === "VALID" && (
                             <span className="px-2.5 py-1 rounded-full bg-neutral-950 text-white font-mono text-[10px] font-bold uppercase inline-flex items-center gap-1">
@@ -533,7 +443,7 @@ export default function StudentImportPage() {
                   leftIcon={<Users className="w-4 h-4" />}
                   className="w-full sm:w-auto font-bold text-xs px-8 shadow-md"
                 >
-                  {isSubmitting ? "Importing Roster..." : `Import ${validCount} Valid Candidates`}
+                  {isSubmitting ? "Importing Roster..." : `Invite ${validCount} Valid Candidates`}
                 </Button>
               </div>
             </div>

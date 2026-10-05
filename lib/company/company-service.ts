@@ -578,33 +578,47 @@ export async function getCompanyApplications(
 /**
  * Update Candidate Application Status by Company (with status transition matrix validation)
  */
+export async function saveApplicationNotesByCompany(companyUserId: string, applicationId: string, note: unknown, expectedUpdatedAt: unknown) {
+  if (typeof note !== "string" || note.length > 2000) throw new ApiError("Notes must contain at most 2,000 characters.");
+  if (typeof expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(expectedUpdatedAt))) throw new ApiError("Refresh the application before saving notes.");
+  const application = await db.jobApplication.findUnique({where:{id:applicationId},include:{job:true}});
+  if (!application) throw new ApiError("Application not found.",404);
+  if (application.job.companyUserId !== companyUserId) throw new ApiError("This application belongs to another employer.",403);
+  const result = await db.jobApplication.updateMany({where:{id:applicationId,updatedAt:new Date(expectedUpdatedAt)},data:{notes:note.trim() || null}});
+  if (result.count !== 1) throw new ApiError("This application changed. Refresh before saving notes.",409,"CONFLICT");
+  return db.jobApplication.findUnique({where:{id:applicationId}});
+}
+
 export async function updateApplicationStatusByCompany(
   companyUserId: string,
   applicationId: string,
   newStatus: ApplicationState | string,
   employerNote?: string,
+  expectedUpdatedAt?: string,
 ) {
   const application = await db.jobApplication.findUnique({
     where: { id: applicationId },
     include: { job: true, user: true },
   });
 
-  if (!application) throw new Error("Application not found.");
+  if (!application) throw new ApiError("Application not found.",404);
   if (application.job.companyUserId !== companyUserId) {
-    throw new Error(
-      "Unauthorized. This application belongs to another employer.",
+    throw new ApiError(
+      "This application belongs to another employer.",403,
     );
   }
 
   const currentStatus = application.status;
+  if (expectedUpdatedAt && expectedUpdatedAt !== application.updatedAt.toISOString()) throw new ApiError("This application changed. Refresh before updating it.",409,"CONFLICT");
+  if (employerNote !== undefined && (typeof employerNote !== "string" || employerNote.length > 2000)) throw new ApiError("Notes must contain at most 2,000 characters.");
   if (!isApplicationState(newStatus)) throw new ApiError("Unsupported application status.");
-  if (currentStatus === newStatus && !employerNote) return application;
+  if (currentStatus === newStatus) return employerNote === undefined ? application : saveApplicationNotesByCompany(companyUserId, applicationId, employerNote, expectedUpdatedAt || application.updatedAt.toISOString());
 
   // Validate status transition matrix
   if (currentStatus !== newStatus) {
     const allowed = VALID_TRANSITIONS[currentStatus] || [];
     if (!allowed.includes(newStatus)) {
-      throw new Error(
+      throw new ApiError(
         `Invalid status transition from ${currentStatus} to ${newStatus}. Allowed transitions: ${allowed.join(", ") || "None"}.`,
       );
     }
@@ -623,7 +637,7 @@ export async function updateApplicationStatusByCompany(
   let timelineTitle = `Status updated to ${statusStr.replace("_", " ")}`;
   if (statusStr === "UNDER_REVIEW") timelineTitle = "Application Under Review";
   else if (statusStr === "SHORTLISTED") timelineTitle = "Candidate Shortlisted";
-  else if (statusStr === "INTERVIEW") timelineTitle = "Interview Scheduled";
+  else if (statusStr === "INTERVIEW") timelineTitle = "Moved to interview stage";
   else if (statusStr === "SELECTED") timelineTitle = "Candidate Selected";
   else if (statusStr === "OFFERED") timelineTitle = "Offer Extended";
   else if (statusStr === "REJECTED")
@@ -638,7 +652,7 @@ export async function updateApplicationStatusByCompany(
 
   const changed = await db.jobApplication.updateMany({
     where: { id: applicationId, status: currentStatus, updatedAt: application.updatedAt },
-    data: { status: newStatus, timelineJson: JSON.stringify(timeline), notes: employerNote?.trim().slice(0, 2000) || application.notes },
+    data: { status: newStatus, timelineJson: JSON.stringify(timeline), notes: employerNote === undefined ? application.notes : employerNote.trim() || null },
   });
   if (changed.count !== 1) throw new ApiError("This application changed. Refresh before updating it.", 409, "CONFLICT");
   const updated = await db.jobApplication.findUnique({ where: { id: applicationId } });

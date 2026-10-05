@@ -179,7 +179,7 @@ export default function InstituteSettingsPage() {
 
               <Badge variant="dark" className="font-mono text-xs px-3 py-1.5 border-neutral-300">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 inline mr-1" />
-                {profile?.verificationStatus || "VERIFIED"}
+                {profile?.verificationStatus || "Loading"}
               </Badge>
             </div>
           </div>
@@ -266,7 +266,7 @@ export default function InstituteSettingsPage() {
 
                 <div className="pt-2 flex items-center justify-between border-t border-neutral-100">
                   <span className="text-[10px] font-mono text-neutral-400">
-                    Database ID: {profile?.id || "N/A"} • Verified Campus
+                    Database ID: {profile?.id || "N/A"} • Status: {profile?.verificationStatus || "Loading"}
                   </span>
 
                   <Button

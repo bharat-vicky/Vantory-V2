@@ -54,6 +54,8 @@ export async function GET(
         company: job.company,
         companyLogo: job.companyLogo,
         companyUserId: job.companyUserId,
+        companyUrl: job.companyUrl,
+        aboutCompany: job.aboutCompany,
         location: job.location,
         workMode: job.workMode,
         type: job.type,

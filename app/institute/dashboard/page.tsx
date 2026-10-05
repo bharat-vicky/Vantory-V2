@@ -25,6 +25,7 @@ interface DashboardData {
   verificationStatus: string;
   totalStudents: number;
   activeStudents: number;
+  consentingStudents: number;
   placementReadyCount: number;
   totalApplications: number;
   shortlistedCount: number;
@@ -82,6 +83,7 @@ export default function InstituteDashboardPage() {
         <Header />
 
         <main className="p-6 sm:p-10 space-y-8 max-w-7xl mx-auto w-full">
+          {data && <p className="text-sm text-neutral-600">Preparation metrics cover {data.consentingStudents} of {data.totalStudents} students who consented to analytics sharing.</p>}
           {/* Header Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200/80 pb-6">
             <div className="flex items-center gap-3.5">
@@ -95,7 +97,7 @@ export default function InstituteDashboardPage() {
                   </h1>
                   <Badge variant="dark" className="font-mono text-[10px]">
                     <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                    {data?.verificationStatus || "VERIFIED"}
+                    {data?.verificationStatus || "Loading"}
                   </Badge>
                 </div>
                 <p className="text-xs text-neutral-500 font-mono mt-0.5">
@@ -151,8 +153,8 @@ export default function InstituteDashboardPage() {
                 {loading ? "..." : data?.placementReadyCount || 0}
               </div>
               <p className="text-xs text-neutral-500 mt-1 font-mono">
-                {data?.totalStudents
-                  ? Math.round(((data.placementReadyCount || 0) / data.totalStudents) * 100)
+                {data?.consentingStudents
+                  ? Math.round(((data.placementReadyCount || 0) / data.consentingStudents) * 100)
                   : 0}
                 % Readiness Rate
               </p>
@@ -342,7 +344,7 @@ export default function InstituteDashboardPage() {
               <div className="p-4 bg-neutral-950 text-white rounded-2xl space-y-2">
                 <div className="text-xs font-extrabold">Instant Roster Import</div>
                 <p className="text-[11px] text-neutral-400 leading-relaxed">
-                  Upload CSV student files to onboard entire batches automatically into your campus ecosystem.
+                  Upload CSV files to invite students. They join your campus roster after accepting the invitation.
                 </p>
                 <Link href="/institute/students" className="inline-block pt-1">
                   <span className="text-xs font-extrabold text-white underline">Import Student Roster &rarr;</span>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/authorization";
-import { updateApplicationStatusByCompany } from "@/lib/company/company-service";
+import { updateApplicationStatusByCompany, saveApplicationNotesByCompany } from "@/lib/company/company-service";
+import { apiError } from "@/lib/api-error";
 import { ApplicationState } from "@/lib/application-state";
 
 export async function PATCH(
@@ -22,6 +23,10 @@ export async function PATCH(
 
     const body = await request.json();
     const { status, note } = body;
+    if (status === undefined) {
+      const application = await saveApplicationNotesByCompany(user.id, applicationId, note, body.expectedUpdatedAt);
+      return NextResponse.json({success:true,application});
+    }
 
     if (!status || !Object.values(ApplicationState).includes(status)) {
       return NextResponse.json(
@@ -35,16 +40,10 @@ export async function PATCH(
       applicationId,
       status,
       note,
+      body.expectedUpdatedAt,
     );
     return NextResponse.json({ success: true, application: updated });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Failed to update application status.";
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 400 },
-    );
+    return apiError(error);
   }
 }

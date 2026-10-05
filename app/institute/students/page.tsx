@@ -26,8 +26,8 @@ interface Student {
   course: string;
   graduationYear: number;
   profileCompletion: number;
-  resumesCount: number;
-  averageAtsScore: number;
+  resumesCount: number | null;
+  averageAtsScore: number | null;
   averageInterviewScore: number;
   placementStatus: string;
   readiness: {
@@ -289,7 +289,7 @@ export default function InstituteStudentsPage() {
                         </td>
 
                         <td className="py-4 px-4 font-mono text-neutral-800">
-                          {student.resumesCount > 0 ? (
+                          {student.resumesCount === null ? <span className="text-neutral-400">Not shared</span> : student.resumesCount > 0 ? (
                             <span className="text-emerald-700 font-bold">✓ {student.resumesCount} Ready</span>
                           ) : (
                             <span className="text-neutral-400">0 Resumes</span>
@@ -297,7 +297,7 @@ export default function InstituteStudentsPage() {
                         </td>
 
                         <td className="py-4 px-4 font-mono">
-                          {student.averageAtsScore > 0 ? (
+                          {student.averageAtsScore === null ? <span className="text-neutral-400">Not shared</span> : student.averageAtsScore > 0 ? (
                             <span
                               className={`font-black ${
                                 student.averageAtsScore >= 75

@@ -255,7 +255,7 @@ export default function InstituteStudentDetailPage() {
                         <div className="text-sm font-extrabold text-neutral-950">{r.title}</div>
                         <div className="text-[10px] font-mono text-neutral-500 mt-0.5">Template: {r.templateId}</div>
                       </div>
-                      <Badge variant="subtle" className="font-mono text-[10px]">Verified Resume</Badge>
+                      <Badge variant="subtle" className="font-mono text-[10px]">Saved resume</Badge>
                     </div>
                   ))}
                 </div>

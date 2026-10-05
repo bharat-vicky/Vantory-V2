@@ -1,4 +1,5 @@
 import test from "node:test";
+import {PATCH as updateProfile} from "../app/api/candidate/profile/route";
 import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 import {assessBullet,normalizedBulletScore} from "../lib/resume/bullet-feedback";
@@ -132,4 +133,15 @@ test("Ending a session atomically saves its report and exercise-linked gap tasks
 test("Institute review lookup rechecks the candidate's current sharing consent",async()=>{
   const restores=[stubMethod(db.user,"findUnique",async({where}:any)=>({instituteId,profile:{careerJson:JSON.stringify({...defaultCareer,mentorConsent:where.id===owner})}})),stubMethod(db.resumeReviewRequest,"findUnique",async()=>({id:resumeId,userId:"444444444444444444444444",instituteId,status:"OPEN",expiresAt:new Date(Date.now()+60000),comments:[]}))];
   try{await assert.rejects(()=>authorizedReview(resumeId,owner),/unavailable/);}finally{restores.reverse().forEach(r=>r());}
+});
+
+test("Incomplete profiles save nullable fields and preserve explicit sharing off",async()=>{
+ let saved:any;
+ const restores=[stubMethod(db.profile,"findUnique",async()=>({bio:null,phone:null,careerJson:JSON.stringify(defaultCareer)})),stubMethod(db.profile,"upsert",async({update}:any)=>{saved=update;return update;})];
+ try{await authenticated("CANDIDATE",async()=>{
+   const request=new Request("http://localhost/api/candidate/profile",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({profile:{bio:null,phone:null,githubUrl:null,graduationYear:null},career:defaultCareer})});
+   assert.equal((await updateProfile(request)).status,200);assert.equal(saved.bio,null);assert.equal(JSON.parse(saved.careerJson).mentorConsent,false);assert.equal(JSON.parse(saved.careerJson).instituteAnalyticsConsent,false);
+   const invalid=new Request("http://localhost/api/candidate/profile",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({profile:{bio:42}})});
+   assert.equal((await updateProfile(invalid)).status,400);
+ });}finally{restores.reverse().forEach(r=>r());}
 });
