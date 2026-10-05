@@ -18,7 +18,10 @@ export async function executeAssessment(exercise:keyof typeof EXERCISES,code:str
   if(!response.ok)throw new ApiError("Execution service is unavailable. Retry later.",503,"EXECUTION_UNAVAILABLE");
   const r=await response.json();if(!r.status || !Number.isInteger(r.status.id) || r.status.id<3 || r.status.id===13 || r.status.id===14)throw new ApiError("Execution service could not complete this run. Retry later.",503,"EXECUTION_UNAVAILABLE");
   const output=typeof r.stdout==="string"?r.stdout.trim().replace(/\r/g,""):"";
-  results.push({passed:r.status.id===3 && output===c.expected,status:String(r.status.description || "Completed"),time:r.time ?? null,feedback:String(r.stderr || r.compile_output || "").slice(0,1500)});
+  const passed=r.status.id===3 && output===c.expected;
+  // Judge0 reports Accepted when code runs, even if our expected output differs.
+  const status=r.status.id===3 ? (passed ? "Passed" : "Output did not match") : String(r.status.description || "Completed");
+  results.push({passed,status,time:r.time ?? null,feedback:String(r.stderr || r.compile_output || "").slice(0,1500)});
  }
  return {score:Math.round(results.filter(r=>r.passed).length/results.length*100),passed:results.filter(r=>r.passed).length,total:results.length,results,assessmentVersion:"execution.v1"};
 }

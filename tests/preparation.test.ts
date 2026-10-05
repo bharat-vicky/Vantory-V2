@@ -13,6 +13,19 @@ test("Execution availability rejects malformed URLs, insecure endpoints and inva
 import {calendarEvent} from "../lib/candidate/calendar";
 import {validateCareer,profileCompletion,defaultCareer} from "../lib/candidate/profile";
 import {preservesResumeFacts} from "../lib/ai/factual-rewrite";
+
+test("Successful execution with incorrect output is labelled as a failed case",async()=>{
+ const orig=globalThis.fetch;
+ process.env.JUDGE0_URL="https://runner.example";
+ process.env.JUDGE0_TOKEN="fixture";
+ globalThis.fetch=async()=>new Response(JSON.stringify({stdout:"42",status:{id:3,description:"Accepted"}}));
+ try{
+  const result=await executeAssessment("arrays","print(42)");
+  assert.equal(result.score,0);
+  assert.equal(result.passed,0);
+  assert.ok(result.results.every(r=>!r.passed && r.status==="Output did not match"));
+ }finally{globalThis.fetch=orig;process.env.JUDGE0_URL="";process.env.JUDGE0_TOKEN="";}
+});
 test("Public knowledge checks do not disclose answer keys; all topics can be assessed",()=>{for(const t of TOPICS){assert.ok(t.quiz.length>=3);assert.equal('answer' in publicTopic(t).quiz[0],false);assert.equal(gradeQuiz(t,t.quiz.map(q=>({id:q.id,choice:q.answer}))).score,100);assert.throws(()=>gradeQuiz(t,[]));}});
 test("Incorrect and duplicate choices cannot create a passing knowledge score",()=>{const t=TOPICS[0];const answers=t.quiz.map(q=>({id:q.id,choice:(q.answer+1)%q.options.length}));assert.equal(gradeQuiz(t,answers).score,0);assert.throws(()=>gradeQuiz(t,[answers[0],answers[0],answers[0]]));});
 test("Execution remains unavailable without a configured isolated backend",async()=>{await assert.rejects(()=>executeAssessment("arrays","print(2)"),/unavailable/);await assert.rejects(()=>executeAssessment("sql","DROP TABLE customers"),/SELECT/);});
