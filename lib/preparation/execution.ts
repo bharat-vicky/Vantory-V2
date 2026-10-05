@@ -1,5 +1,8 @@
 import { ApiError } from "@/lib/api-error";
 import { executionConfiguration } from "./execution-config";
+// Judge0's launch wrapper needs child processes before Python or SQLite starts.
+// Keep a small bound that permits the wrapper without allowing a fork bomb.
+const SANDBOX_PROCESS_LIMIT = 8;
 export const EXERCISES={arrays:{title:"First repeated value",statement:"Read a JSON array of integers from standard input. Print the first value that occurs a second time, or null if all values are unique. Examples: [2,1,2,1] -> 2; [] -> null. Submit a complete Python 3 program.",language:"python"},sql:{title:"Customer order totals",statement:"Tables: customers(id INTEGER,name TEXT), orders(id INTEGER,customer_id INTEGER,total INTEGER). Return each customer name and SUM(total), including zero for customers without orders. Sort by customer id. Submit a SQLite SELECT query only.",language:"sql"}} as const;
 export function executionCases(exercise:keyof typeof EXERCISES){return exercise==="arrays" ? [{input:"[2,1,2,1]",expected:"2"},{input:"[]",expected:"null"},{input:"[-1,0,3,-1]",expected:"-1"},{input:"[1,2,3]",expected:"null"}]:[{setup:"CREATE TABLE customers(id INTEGER,name TEXT); CREATE TABLE orders(id INTEGER,customer_id INTEGER,total INTEGER); INSERT INTO customers VALUES(1,'A'),(2,'B'); INSERT INTO orders VALUES(1,1,10),(2,1,20);",expected:"A|30\nB|0"},{setup:"CREATE TABLE customers(id INTEGER,name TEXT); CREATE TABLE orders(id INTEGER,customer_id INTEGER,total INTEGER); INSERT INTO customers VALUES(1,'A');",expected:"A|0"}];}
 export async function executeAssessment(exercise:keyof typeof EXERCISES,code:string){
@@ -11,7 +14,7 @@ export async function executeAssessment(exercise:keyof typeof EXERCISES,code:str
  const cases=executionCases(exercise);const results=[];
  for(const c of cases){
   let response:Response;
-  try{response=await fetch(`${base.replace(/\/$/,"")}/submissions?base64_encoded=false&wait=true`,{method:"POST",redirect:"error",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({language_id:language,source_code:exercise==="sql" ? `${"setup" in c?c.setup:""}\n${code}`:code,stdin:"input" in c?c.input:null,cpu_time_limit:2,wall_time_limit:5,memory_limit:128000,max_file_size:1024,max_processes_and_or_threads:1,enable_network:false}),signal:AbortSignal.timeout(12000)});}catch{throw new ApiError("Execution service did not respond. Retry later.",503,"EXECUTION_UNAVAILABLE");}
+  try{response=await fetch(`${base.replace(/\/$/,"")}/submissions?base64_encoded=false&wait=true`,{method:"POST",redirect:"error",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({language_id:language,source_code:exercise==="sql" ? `${"setup" in c?c.setup:""}\n${code}`:code,stdin:"input" in c?c.input:null,cpu_time_limit:2,wall_time_limit:5,memory_limit:128000,max_file_size:1024,max_processes_and_or_threads:SANDBOX_PROCESS_LIMIT,enable_network:false}),signal:AbortSignal.timeout(12000)});}catch{throw new ApiError("Execution service did not respond. Retry later.",503,"EXECUTION_UNAVAILABLE");}
   if(!response.ok)throw new ApiError("Execution service is unavailable. Retry later.",503,"EXECUTION_UNAVAILABLE");
   const r=await response.json();if(!r.status || !Number.isInteger(r.status.id) || r.status.id<3 || r.status.id===13 || r.status.id===14)throw new ApiError("Execution service could not complete this run. Retry later.",503,"EXECUTION_UNAVAILABLE");
   const output=typeof r.stdout==="string"?r.stdout.trim().replace(/\r/g,""):"";
