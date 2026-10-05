@@ -56,6 +56,7 @@ export const companyNavItems: NavItem[] = [
 export const instituteNavItems: NavItem[] = [
   { name: "Dashboard", href: "/institute/dashboard", icon: LayoutDashboard },
   { name: "Student Roster", href: "/institute/students", icon: Users },
+  { name: "Student Invitations", href: "/institute/invitations", icon: Users },
   { name: "Campus Jobs", href: "/institute/jobs", icon: Briefcase },
   { name: "Applications", href: "/institute/applications", icon: FileText },
   { name: "Resume Reviews", href: "/institute/resume-reviews", icon: FileCheck },

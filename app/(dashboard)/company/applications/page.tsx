@@ -17,6 +17,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { ResumePreview } from "@/components/resume/ResumePreview";
+import { InterviewScheduler } from "@/components/company/InterviewScheduler";
+import type { InterviewSchedule } from "@/lib/jobs/interview-schedule";
 import { ResumeData } from "@/lib/resume/types";
 import { APPLICATION_TRANSITIONS } from "@/lib/application-state";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
@@ -41,6 +43,7 @@ interface CandidateApplicationItem {
   status: string;
   coverNote?: string;
   employerNotes?: string;
+  interview: InterviewSchedule | null;
   resume?: {
     id: string;
     title: string;
@@ -578,6 +581,10 @@ export default function CompanyApplicationsPage() {
                   </div>
                 )}
 
+                <InterviewScheduler key={selectedApplication.id} applicationId={selectedApplication.id} status={selectedApplication.status} updatedAt={selectedApplication.updatedAt} interview={selectedApplication.interview} disabled={isUpdatingStatus || notesDirty} onSaved={result=>{
+                  setSelectedApplication(previous=>previous ? {...previous,...result} : null);
+                  setApplications(items=>items.map(item=>item.id === selectedApplication.id ? {...item,...result} : item));
+                }}/>
                 {/* Employer Internal Notes */}
                 <div className="space-y-2">
                   <label className="font-mono text-neutral-500 uppercase block font-semibold">

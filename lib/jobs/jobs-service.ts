@@ -3,6 +3,7 @@ import { ApplicationState } from "@/lib/application-state";
 import { discoveryPipeline, annualSalary } from "./discovery";
 import { ApiError, objectId } from "@/lib/api-error";
 import { readApplicationSnapshot } from "./snapshots";
+import { applicationInterview } from "./interview-schedule";
 import { Prisma } from "@prisma/client";
 
 export interface JobFilterParams {
@@ -303,6 +304,7 @@ export async function getApplicationDetails(
     resume: readApplicationSnapshot(app).resume,
     snapshotAvailable:Boolean(app.resumeSnapshotJson),
     timeline,
+    interview: applicationInterview(app.timelineJson, app.status),
   };
 }
 

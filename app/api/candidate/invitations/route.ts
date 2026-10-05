@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireCandidate } from "@/lib/auth/authorization";
 import { db } from "@/lib/db";
 import { ApiError, apiError, objectId } from "@/lib/api-error";
+import { defaultCareer,parseJson } from "@/lib/candidate/profile";
 
 export async function GET() {
   try {
@@ -24,9 +25,12 @@ export async function POST(request: Request) {
         const changed = await tx.user.updateMany({ where: { id: user.id, OR: [{ instituteId: null }, { instituteId: { isSet: false } }, { instituteId: invitation.instituteId }] }, data: { instituteId: invitation.instituteId } });
         if (!changed.count) throw new ApiError("You already belong to another institute.", 409);
         const roster = JSON.parse(invitation.rosterJson);
-        await tx.profile.upsert({ where: { userId: user.id }, create: { userId: user.id, ...roster }, update: roster });
+        const existingProfile=await tx.profile.findUnique({where:{userId:user.id}});
+        const career={...parseJson(existingProfile?.careerJson,defaultCareer),mentorConsent:false,instituteAnalyticsConsent:false,consentUpdatedAt:new Date().toISOString()};
+        await tx.profile.upsert({ where: { userId: user.id }, create: { userId: user.id, ...roster,careerJson:JSON.stringify(career) }, update: {...roster,careerJson:JSON.stringify(career)} });
       }
-      await tx.instituteInvitation.update({ where: { id: invitation.id }, data: { status: accept ? "ACCEPTED" : "DECLINED" } });
+      const consumed=await tx.instituteInvitation.updateMany({ where: { id: invitation.id,email:user.email,status:"PENDING",expiresAt:{gt:new Date()},updatedAt:invitation.updatedAt }, data: { status: accept ? "ACCEPTED" : "DECLINED" } });
+      if (consumed.count !== 1) throw new ApiError("Invitation changed. Refresh before responding.",409);
     });
     return NextResponse.json({ success: true });
   } catch (error) { return apiError(error); }

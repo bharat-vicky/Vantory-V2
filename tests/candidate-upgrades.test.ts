@@ -1,5 +1,10 @@
 import test from "node:test";
 import {PATCH as updateProfile} from "../app/api/candidate/profile/route";
+import * as membershipRoute from "../app/api/candidate/membership/route";
+import * as invitationsRoute from "../app/api/institute/invitations/route";
+import * as calendarRoute from "../app/api/applications/[id]/calendar/route";
+import * as schedulerRoute from "../app/api/company/applications/[id]/interview/route";
+import * as candidateInvitationsRoute from "../app/api/candidate/invitations/route";
 import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 import {assessBullet,normalizedBulletScore} from "../lib/resume/bullet-feedback";
@@ -144,4 +149,26 @@ test("Incomplete profiles save nullable fields and preserve explicit sharing off
    const invalid=new Request("http://localhost/api/candidate/profile",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({profile:{bio:42}})});
    assert.equal((await updateProfile(invalid)).status,400);
  });}finally{restores.reverse().forEach(r=>r());}
+});
+
+test("New membership, invitation and calendar APIs enforce role and owner permissions",async()=>{
+ assert.equal((await membershipRoute.GET()).status,401);
+ assert.equal((await invitationsRoute.GET(new Request("http://localhost/api/institute/invitations"))).status,401);
+ assert.equal((await calendarRoute.GET(new Request("http://localhost"),{params:Promise.resolve({id:resumeId})})).status,401);
+ await authenticated("CANDIDATE",async()=>{
+   assert.equal((await invitationsRoute.GET(new Request("http://localhost/api/institute/invitations"))).status,403);
+   assert.equal((await schedulerRoute.PATCH(post("/api/company/applications/id/interview",{}),{params:Promise.resolve({id:resumeId})})).status,403);
+   const restore=stubMethod(db.jobApplication,"findUnique",async()=>({userId:"foreign",job:{companyUserId:"foreign"}}));try{assert.equal((await calendarRoute.GET(new Request("http://localhost"),{params:Promise.resolve({id:resumeId})})).status,404);}finally{restore();}
+ });
+ await authenticated("COMPANY_ADMIN",async()=>{assert.equal((await membershipRoute.POST(post("/api/candidate/membership",{}))).status,403);});
+});
+test("Candidate accepts invitations atomically and joining resets old sharing consent",async()=>{
+ let roster:any,consumed=1;
+ const restores=[stubMethod(db,"$transaction",async(fn:any)=>fn({instituteInvitation:{findFirst:async()=>({id:resumeId,instituteId,updatedAt:revision,rosterJson:JSON.stringify({department:"CS"})}),updateMany:async({where}:any)=>{assert.equal(where.status,"PENDING");assert.equal(where.email,"fixture@example.test");return {count:consumed};}},user:{updateMany:async()=>({count:1})},profile:{findUnique:async()=>({careerJson:JSON.stringify({...defaultCareer,mentorConsent:true,instituteAnalyticsConsent:true})}),upsert:async({update}:any)=>{roster=update;}}}))];
+ try{await authenticated("CANDIDATE",async()=>{const response=await candidateInvitationsRoute.POST(post("/api/candidate/invitations",{invitationId:resumeId,accept:true}));assert.equal(response.status,200);const career=JSON.parse(roster.careerJson);assert.equal(career.mentorConsent,false);assert.equal(career.instituteAnalyticsConsent,false);consumed=0;assert.equal((await candidateInvitationsRoute.POST(post("/api/candidate/invitations",{invitationId:resumeId,accept:true}))).status,409);});}finally{restores.reverse().forEach(r=>r());}
+});
+test("Owned interview calendar exports correct headers and excludes private employer notes",async()=>{
+ const schedule={state:"SCHEDULED",startsAt:"2026-10-10T04:30:00Z",timeZone:"Asia/Kolkata",durationMinutes:30,mode:"ONLINE",joiningDetails:"https://meet.example.test/qa",interviewer:"QA",message:"Candidate-visible instructions",updatedAt:revision.toISOString(),sequence:1};
+ const restore=stubMethod(db.jobApplication,"findUnique",async()=>({userId:owner,status:"INTERVIEW",notes:"SECRET PRIVATE NOTE",timelineJson:JSON.stringify([{kind:"INTERVIEW_SCHEDULE",interview:schedule}]),job:{companyUserId:"company",title:"QA Engineer",company:"QA Company"}}));
+ try{await authenticated("CANDIDATE",async()=>{const response=await calendarRoute.GET(new Request("http://localhost"),{params:Promise.resolve({id:resumeId})});assert.equal(response.status,200);assert.match(response.headers.get("Content-Type")!,/text\/calendar/);assert.equal(response.headers.get("Cache-Control"),"private, no-store");const calendar=(await response.text()).replace(/\r\n /g,"");assert.match(calendar,/Candidate-visible instructions/);assert.doesNotMatch(calendar,/SECRET PRIVATE NOTE/);});}finally{restore();}
 });

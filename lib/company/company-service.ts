@@ -1,5 +1,6 @@
 import { Eligibility,validateEligibility } from "@/lib/jobs/eligibility";
 import { readApplicationSnapshot } from "@/lib/jobs/snapshots";
+import { applicationInterview } from "@/lib/jobs/interview-schedule";
 import { db } from "@/lib/db";
 import { ApplicationState, APPLICATION_TRANSITIONS, isApplicationState } from "@/lib/application-state";
 import { ApiError } from "@/lib/api-error";
@@ -570,6 +571,7 @@ export async function getCompanyApplications(
     updatedAt: app.updatedAt.toISOString(),
     coverNote: app.coverNote,
     employerNotes: app.notes,
+    interview: applicationInterview(app.timelineJson, app.status),
     resume: readApplicationSnapshot(app).resume,
     snapshotAvailable:Boolean(app.resumeSnapshotJson),
   }));

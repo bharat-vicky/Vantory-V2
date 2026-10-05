@@ -180,6 +180,7 @@ export default function StudentImportPage() {
 
         <main className="p-6 sm:p-10 space-y-8 max-w-7xl mx-auto w-full">
           <p className="p-4 border rounded-xl text-sm">{invitationNotice}</p>
+          <Link className="underline text-sm" href="/institute/invitations">Manage student invitations</Link>
           {importResult && <div role="status"><p>Invitations created: {importResult.invitedCount || 0}. Existing members: {importResult.importedCount}. Skipped: {importResult.skippedCount}.</p>{importResult.conflicts?.map((c,i)=><p key={i}>Row {c.row}: {c.reason}</p>)}</div>}
           {/* Top Header Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200/80 pb-6">

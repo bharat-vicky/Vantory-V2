@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { InterviewDetails } from "@/components/jobs/InterviewDetails";
+import type { InterviewSchedule } from "@/lib/jobs/interview-schedule";
 import {
   Briefcase,
   Clock,
@@ -43,6 +45,7 @@ interface ApplicationDetailData {
     updatedAt: string;
   };
   timeline: TimelineEvent[];
+  interview: InterviewSchedule | null;
 }
 
 export default function ApplicationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -200,6 +203,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
+        <InterviewDetails interview={application.interview} applicationId={application.id}/>
         {/* Withdrawal Confirmation Dialog */}
         {showWithdrawConfirm && (
           <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl space-y-3">
