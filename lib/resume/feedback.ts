@@ -40,6 +40,8 @@ export async function candidateFeedback(userId:string,params:URLSearchParams) {
 }
 export async function feedbackReminders(userId:string) {
   const joined=await membership(userId);if(!joined.mentorConsent || !joined.instituteId)return [];
-  const reviews=await db.resumeReviewRequest.findMany({where:{userId,instituteId:joined.instituteId,status:"REVIEWED",expiresAt:{gt:new Date()},comments:{some:{resolvedAt:null}}},orderBy:{updatedAt:"desc"},take:10,select:{id:true,title:true,comments:{where:{resolvedAt:null},orderBy:{createdAt:"desc"},select:{createdAt:true}}}});
+  // MongoDB distinguishes a missing optional field from an explicit null.
+  const unresolved={OR:[{resolvedAt:null},{resolvedAt:{isSet:false}}]};
+  const reviews=await db.resumeReviewRequest.findMany({where:{userId,instituteId:joined.instituteId,status:"REVIEWED",expiresAt:{gt:new Date()},comments:{some:unresolved}},orderBy:{updatedAt:"desc"},take:10,select:{id:true,title:true,comments:{where:unresolved,orderBy:{createdAt:"desc"},select:{createdAt:true}}}});
   return reviews.filter(r=>r.comments.length).map(r=>({id:`feedback-${r.id}`,title:`Resume feedback: ${r.title} · ${r.comments.length} to address`,at:r.comments[0].createdAt.toISOString(),href:`/feedback/${r.id}`}));
 }
