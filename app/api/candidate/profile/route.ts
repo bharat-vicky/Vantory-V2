@@ -12,7 +12,7 @@ export async function PATCH(request:Request){try{
  if(b.profile?.graduationYear!==undefined){const y=b.profile.graduationYear;if(y!==null && (!Number.isInteger(y) || y<1990 || y>2100))throw new ApiError("Invalid graduation year.");data.graduationYear=y;}
  const career=b.career!==undefined ? validateCareer(b.career):parseJson(existing?.careerJson,defaultCareer);
  if(b.career!==undefined)data.careerJson=JSON.stringify(career);
- if(b.preferences!==undefined){if(!b.preferences || !Object.keys(defaultPreferences).every(k=>typeof b.preferences[k]==="boolean"))throw new ApiError("Invalid notification preferences.");data.preferencesJson=JSON.stringify(Object.fromEntries(Object.keys(defaultPreferences).map(k=>[k,b.preferences[k]])));}
+ if(b.preferences!==undefined){if(!b.preferences || !["applicationUpdates","reminders","preparationNudges"].every(k=>typeof b.preferences[k]==="boolean") || (b.preferences.resumeFeedback!==undefined && typeof b.preferences.resumeFeedback!=="boolean"))throw new ApiError("Invalid notification preferences.");const saved=parseJson(existing?.preferencesJson,defaultPreferences);data.preferencesJson=JSON.stringify(Object.fromEntries(Object.keys(defaultPreferences).map(k=>[k,b.preferences[k] ?? saved[k as keyof typeof saved]])));}
  data.completionScore=profileCompletion({...existing,...data},career);
  const p=await db.profile.upsert({where:{userId:u.id},create:{userId:u.id,...data},update:data});
  return NextResponse.json({success:true,profile:p,career,preferences:parseJson(p.preferencesJson,defaultPreferences)});

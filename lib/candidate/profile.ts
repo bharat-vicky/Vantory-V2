@@ -1,8 +1,8 @@
 import { ApiError } from "@/lib/api-error";
 export interface CareerProfile { track:"SOFTWARE"|"DATA"; targetRoles:string[]; preferredLocations:string[]; workModes:string[]; cgpa:number|null; percentage:number|null; activeBacklogs:number|null; availability:string; mentorConsent:boolean; instituteAnalyticsConsent:boolean; consentUpdatedAt?:string }
-export interface CandidatePreferences { applicationUpdates:boolean; reminders:boolean; preparationNudges:boolean }
+export interface CandidatePreferences { applicationUpdates:boolean; reminders:boolean; preparationNudges:boolean; resumeFeedback:boolean }
 export const defaultCareer:CareerProfile={track:"SOFTWARE",targetRoles:[],preferredLocations:[],workModes:[],cgpa:null,percentage:null,activeBacklogs:null,availability:"",mentorConsent:false,instituteAnalyticsConsent:false};
-export const defaultPreferences:CandidatePreferences={applicationUpdates:true,reminders:true,preparationNudges:false};
+export const defaultPreferences:CandidatePreferences={applicationUpdates:true,reminders:true,preparationNudges:false,resumeFeedback:true};
 export function parseJson<T>(raw:string|null|undefined,fallback:T):T {try {return {...fallback,...JSON.parse(raw || "{}")} as T;} catch {return fallback;}}
 export function validateCareer(value:unknown):CareerProfile {
  const b=value as Record<string,unknown>;

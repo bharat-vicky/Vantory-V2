@@ -41,6 +41,7 @@ export const primaryNavItems: NavItem[] = [
   { name: "Career Studio", href: "/career-studio", icon: FileText },
   { name: "Opportunity Tracker", href: "/opportunities", icon: Briefcase },
   { name: "Resume Builder", href: "/resume", icon: FileText },
+  { name: "Feedback Inbox", href: "/feedback", icon: FileCheck },
   { name: "ATS Score Checker", href: "/ats-checker", icon: BarChart3 },
   { name: "AI Mock Interview", href: "/mock-interview", icon: Bot },
 ];

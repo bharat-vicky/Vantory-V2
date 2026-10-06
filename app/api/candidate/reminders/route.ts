@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {requireCandidate} from "@/lib/auth/authorization";
 import {db} from "@/lib/db";
 import {applicationInterview} from "@/lib/jobs/interview-schedule";
+import {feedbackReminders} from "@/lib/resume/feedback";
 import {apiError} from "@/lib/api-error";
 import {parseJson,defaultPreferences} from "@/lib/candidate/profile";
 export async function GET(){try{const u=await requireCandidate();const p=await db.profile.findUnique({where:{userId:u.id}});const pref=parseJson(p?.preferencesJson,defaultPreferences);const now=new Date(),soon=new Date(Date.now()+7*86400000);const reminders:{id:string;title:string;at:string|null;href:string}[]=[];
@@ -9,5 +10,6 @@ export async function GET(){try{const u=await requireCandidate();const p=await d
  if(pref.reminders){const apps=await db.jobApplication.findMany({where:{userId:u.id,status:"INTERVIEW"},include:{job:{select:{title:true,company:true}}},take:100});for(const app of apps){const interview=applicationInterview(app.timelineJson,app.status);if(interview?.state==="SCHEDULED" && new Date(interview.startsAt)>=now && new Date(interview.startsAt)<=soon)reminders.push({id:app.id+"-scheduled-interview",title:`Interview: ${app.job.title} at ${app.job.company}`,at:interview.startsAt,href:`/jobs/applications/${app.id}`});}}
  if(pref.applicationUpdates){const apps=await db.jobApplication.findMany({where:{userId:u.id,updatedAt:{gte:new Date(Date.now()-7*86400000)},status:{not:"APPLIED"}},include:{job:{select:{title:true,company:true}}},take:15,orderBy:{updatedAt:"desc"}});for(const a of apps)reminders.push({id:a.id,title:`${a.job.title}: ${a.status.replaceAll("_"," ")}`,at:a.updatedAt.toISOString(),href:`/jobs/applications/${a.id}`});}
  if(pref.preparationNudges){const task=await db.preparationTask.findFirst({where:{userId:u.id,status:"IN_PROGRESS"},orderBy:{updatedAt:"asc"}});if(task)reminders.push({id:task.id,title:"Continue your preparation task",at:null,href:`/preparation?topicId=${task.topicId}`});}
+ if(pref.resumeFeedback)reminders.push(...await feedbackReminders(u.id));
  return NextResponse.json({success:true,reminders});
 }catch(e){return apiError(e);}}
