@@ -286,6 +286,7 @@ model JobApplication {
   status       String           @default("APPLIED")
   timelineJson String           @default("[]")
   notes        String?
+  evaluationJson String?
   resumeSnapshotJson String?
   jobSnapshotJson String?
   resumeRevision DateTime?

@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import { ResumePreview } from "@/components/resume/ResumePreview";
 import { InterviewScheduler } from "@/components/company/InterviewScheduler";
+import {ApplicantReviewTools} from "@/components/company/ApplicantReviewTools";
+import type {ApplicantEvaluation} from "@/lib/company/applicant-tools-types";
+import {filterPipeline,type PipelineFilters} from "@/lib/company/pipeline-filters";
 import type { InterviewSchedule } from "@/lib/jobs/interview-schedule";
 import { ResumeData } from "@/lib/resume/types";
 import { APPLICATION_TRANSITIONS } from "@/lib/application-state";
@@ -43,6 +46,7 @@ interface CandidateApplicationItem {
   status: string;
   coverNote?: string;
   employerNotes?: string;
+  evaluation: ApplicantEvaluation;
   interview: InterviewSchedule | null;
   resume?: {
     id: string;
@@ -60,6 +64,14 @@ export default function CompanyApplicationsPage() {
   const [appSearchQuery, setAppSearchQuery] = useState<string>("");
   const [appJobFilter, setAppJobFilter] = useState<string>("ALL");
   const [appStatusFilter, setAppStatusFilter] = useState<string>("ALL");
+  const [dateFrom,setDateFrom]=useState("");
+  const [dateTo,setDateTo]=useState("");
+  const [sort,setSort]=useState<PipelineFilters['sort']>('NEWEST');
+  const [page,setPage]=useState(1);
+  const [loadError,setLoadError]=useState("");
+  const [reviewDirty,setReviewDirty]=useState(false);
+  const [reviewBusy,setReviewBusy]=useState(false);
+  const [discardConfirm,setDiscardConfirm]=useState(false);
 
   // Selected Application Review Modal State
   const [selectedApplication, setSelectedApplication] = useState<CandidateApplicationItem | null>(null);
@@ -75,14 +87,16 @@ export default function CompanyApplicationsPage() {
   const [mounted, setMounted] = useState<boolean>(false);
   const notesDirty = Boolean(selectedApplication && employerNoteInput !== (selectedApplication.employerNotes || ""));
   const closeReview = useCallback(() => {
-    if (!isUpdatingStatus && (!notesDirty || window.confirm("Discard unsaved private notes?"))) setSelectedApplication(null);
-  }, [notesDirty, isUpdatingStatus]);
+    if(isUpdatingStatus || reviewBusy)return;
+    if(notesDirty || reviewDirty)setDiscardConfirm(true);
+    else setSelectedApplication(null);
+  }, [notesDirty, reviewDirty, isUpdatingStatus,reviewBusy]);
   useEffect(() => {
-    if (!notesDirty) return;
+    if (!notesDirty && !reviewDirty) return;
     const warn = (event: BeforeUnloadEvent) => {event.preventDefault();};
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [notesDirty]);
+  }, [notesDirty,reviewDirty]);
   const saveNotes = async () => {
     if (!selectedApplication) return;
     setIsUpdatingStatus(true); setStatusUpdateError("");
@@ -125,11 +139,13 @@ export default function CompanyApplicationsPage() {
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
+    setLoadError("");
     try {
       const [jobsRes, appsRes] = await Promise.all([
         fetch("/api/company/jobs"),
         fetch("/api/company/applications"),
       ]);
+      if(!jobsRes.ok || !appsRes.ok)throw new Error("Could not load applications. Try refreshing.");
 
       if (jobsRes.ok) {
         const jJson = await jobsRes.json();
@@ -140,8 +156,8 @@ export default function CompanyApplicationsPage() {
         const aJson = await appsRes.json();
         if (aJson.success && Array.isArray(aJson.applications)) setApplications(aJson.applications);
       }
-    } catch {
-      // Handle silently
+    } catch(error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load applications.");
     } finally {
       setIsLoading(false);
     }
@@ -240,19 +256,11 @@ export default function CompanyApplicationsPage() {
     }
   };
 
-  const filteredApplications = applications.filter((app) => {
-    if (appJobFilter !== "ALL" && app.jobId !== appJobFilter) return false;
-    if (appStatusFilter !== "ALL" && app.status !== appStatusFilter) return false;
-    if (appSearchQuery.trim()) {
-      const q = appSearchQuery.trim().toLowerCase();
-      return (
-        app.candidateName.toLowerCase().includes(q) ||
-        app.candidateEmail.toLowerCase().includes(q) ||
-        app.jobTitle.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const invalidDates=Boolean(dateFrom && dateTo && dateFrom>dateTo);
+  const filteredApplications=invalidDates ? [] : filterPipeline(applications,{search:appSearchQuery,jobId:appJobFilter,status:appStatusFilter,from:dateFrom,to:dateTo,sort});
+  const totalPages=Math.max(1,Math.ceil(filteredApplications.length/25));
+  const currentPage=Math.min(page,totalPages);
+  useEffect(()=>setPage(1),[appSearchQuery,appJobFilter,appStatusFilter,dateFrom,dateTo,sort]);
 
   return (
     <div className="space-y-6 selection:bg-neutral-950 selection:text-white font-sans relative">
@@ -274,6 +282,7 @@ export default function CompanyApplicationsPage() {
         </div>
 
         <button
+          disabled={isLoading || notesDirty || reviewDirty || reviewBusy}
           onClick={() => loadData()}
           className="px-3.5 py-2.5 bg-white border border-neutral-300 rounded-xl text-xs font-mono text-neutral-700 hover:bg-neutral-50 transition-all flex items-center gap-2 cursor-pointer shadow-xs shrink-0 self-start md:self-auto"
         >
@@ -288,6 +297,7 @@ export default function CompanyApplicationsPage() {
           <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
           <input
             type="text"
+            aria-label="Search applications"
             value={appSearchQuery}
             onChange={(e) => setAppSearchQuery(e.target.value)}
             placeholder="Search candidate name or title..."
@@ -297,6 +307,7 @@ export default function CompanyApplicationsPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <select
+            aria-label="Job opening"
             value={appJobFilter}
             onChange={(e) => setAppJobFilter(e.target.value)}
             className="bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-mono text-neutral-950 focus:outline-none"
@@ -310,6 +321,7 @@ export default function CompanyApplicationsPage() {
           </select>
 
           <select
+            aria-label="Application status"
             value={appStatusFilter}
             onChange={(e) => setAppStatusFilter(e.target.value)}
             className="bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-mono text-neutral-950 focus:outline-none"
@@ -326,6 +338,15 @@ export default function CompanyApplicationsPage() {
           </select>
         </div>
       </div>
+      <div className="flex flex-wrap gap-4 items-end border bg-white rounded-xl p-4 text-sm">
+        <label>Applied from<input className="block border rounded p-2" type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}/></label>
+        <label>Applied through<input className="block border rounded p-2" type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}/></label>
+        <label>Sort applications<select className="block border rounded p-2" value={sort} onChange={e=>setSort(e.target.value as PipelineFilters['sort'])}><option value="NEWEST">Newest applications</option><option value="OLDEST">Oldest applications</option><option value="UPDATED">Recently updated</option><option value="NAME">Candidate name</option></select></label>
+        <button className="border rounded px-3 py-2" onClick={()=>{setAppSearchQuery('');setAppJobFilter('ALL');setAppStatusFilter('ALL');setDateFrom('');setDateTo('');setSort('NEWEST');}}>Clear filters</button>
+        <p className="w-full text-neutral-600">Dates use your device time zone. {filteredApplications.length} matching applications.</p>
+        {invalidDates && <p role="alert">The start date must be on or before the end date.</p>}
+      </div>
+      {loadError && <p role="alert" className="border rounded p-4">{loadError}</p>}
 
       {/* Applications List */}
       {isLoading ? (
@@ -348,7 +369,7 @@ export default function CompanyApplicationsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredApplications.map((app) => {
+          {filteredApplications.slice((currentPage-1)*25,currentPage*25).map((app) => {
             const parsedData = parseResumeData(app);
             return (
               <div
@@ -404,6 +425,8 @@ export default function CompanyApplicationsPage() {
                   <button
                     onClick={() => {
                       setSelectedApplication(app);
+                      setReviewDirty(false);
+                      setDiscardConfirm(false);
                       setEmployerNoteInput(app.employerNotes || "");
                       setStatusUpdateError("");
                     }}
@@ -418,6 +441,7 @@ export default function CompanyApplicationsPage() {
           })}
         </div>
       )}
+      {!isLoading && !loadError && <nav aria-label="Application pages" className="flex gap-3 items-center"><button className="border rounded px-3 py-2 disabled:opacity-40" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}>Previous applications</button><span>Page {currentPage} of {totalPages}</span><button className="border rounded px-3 py-2 disabled:opacity-40" disabled={currentPage>=totalPages} onClick={()=>setPage(currentPage+1)}>Next applications</button></nav>}
 
       {/* REVIEW CANDIDATE APPLICATION MODAL */}
       {selectedApplication && mounted && createPortal(
@@ -581,7 +605,12 @@ export default function CompanyApplicationsPage() {
                   </div>
                 )}
 
-                <InterviewScheduler key={selectedApplication.id} applicationId={selectedApplication.id} status={selectedApplication.status} updatedAt={selectedApplication.updatedAt} interview={selectedApplication.interview} disabled={isUpdatingStatus || notesDirty} onSaved={result=>{
+                {discardConfirm && <div role="group" aria-label="Unsaved review changes" className="border rounded p-3 space-y-2"><p>Discard unsaved notes, evaluation or candidate update?</p><button className="border rounded px-3 py-2" onClick={()=>{setDiscardConfirm(false);setReviewDirty(false);setSelectedApplication(null);}}>Discard and close review</button><button className="border rounded px-3 py-2 ml-2" onClick={()=>setDiscardConfirm(false)}>Keep reviewing</button></div>}
+                <ApplicantReviewTools key={`review-${selectedApplication.id}`} id={selectedApplication.id} status={selectedApplication.status} updatedAt={selectedApplication.updatedAt} evaluation={selectedApplication.evaluation} disabled={isUpdatingStatus || notesDirty} onDirtyChange={setReviewDirty} onBusyChange={setReviewBusy} onSaved={result=>{
+                  setSelectedApplication(previous=>previous ? {...previous,...result} : null);
+                  setApplications(items=>items.map(item=>item.id===selectedApplication.id ? {...item,...result} : item));
+                }}/>
+                <InterviewScheduler key={selectedApplication.id} applicationId={selectedApplication.id} status={selectedApplication.status} updatedAt={selectedApplication.updatedAt} interview={selectedApplication.interview} disabled={isUpdatingStatus || notesDirty || reviewDirty || reviewBusy} onSaved={result=>{
                   setSelectedApplication(previous=>previous ? {...previous,...result} : null);
                   setApplications(items=>items.map(item=>item.id === selectedApplication.id ? {...item,...result} : item));
                 }}/>
@@ -593,14 +622,14 @@ export default function CompanyApplicationsPage() {
                   <textarea
                     rows={3}
                     maxLength={2000}
-                    disabled={isUpdatingStatus}
+                    disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                     value={employerNoteInput}
                     onChange={(e) => setEmployerNoteInput(e.target.value)}
                     placeholder="Add private evaluation notes for engineering leads..."
                     className="w-full bg-white border border-neutral-300 rounded-xl p-3 text-neutral-950 font-mono focus:outline-none focus:border-neutral-950"
                   />
                   <div className="flex items-center gap-3">
-                    <button onClick={saveNotes} disabled={!notesDirty || isUpdatingStatus} className="bg-neutral-950 text-white px-3 py-2 rounded-lg disabled:opacity-40">{isUpdatingStatus ? "Saving…" : "Save private notes"}</button>
+                    <button onClick={saveNotes} disabled={!notesDirty || isUpdatingStatus || reviewDirty || reviewBusy} className="bg-neutral-950 text-white px-3 py-2 rounded-lg disabled:opacity-40">{isUpdatingStatus ? "Saving…" : "Save private notes"}</button>
                     <span role="status">{notesDirty ? "Unsaved changes" : "Notes saved"}</span>
                   </div>
                 </div>
@@ -617,7 +646,7 @@ export default function CompanyApplicationsPage() {
                   {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("UNDER_REVIEW") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "UNDER_REVIEW")}
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                       className="px-3.5 py-2 bg-neutral-950 text-white font-mono font-bold text-xs rounded-xl hover:bg-neutral-800 cursor-pointer shadow-xs"
                     >
                       Move to UNDER REVIEW
@@ -627,7 +656,7 @@ export default function CompanyApplicationsPage() {
                   {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("SHORTLISTED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "SHORTLISTED")}
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                       className="px-3.5 py-2 bg-neutral-950 text-white font-mono font-bold text-xs rounded-xl hover:bg-neutral-800 cursor-pointer shadow-xs"
                     >
                       Shortlist Candidate
@@ -637,7 +666,7 @@ export default function CompanyApplicationsPage() {
                   {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("INTERVIEW") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "INTERVIEW")}
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                       className="px-3.5 py-2 bg-neutral-950 text-white font-mono font-bold text-xs rounded-xl hover:bg-neutral-800 cursor-pointer shadow-xs"
                     >
                       Move to INTERVIEWING
@@ -647,7 +676,7 @@ export default function CompanyApplicationsPage() {
                   {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("SELECTED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "SELECTED")}
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                       className="px-3.5 py-2 bg-neutral-950 text-white font-mono font-bold text-xs rounded-xl hover:bg-neutral-800 cursor-pointer shadow-xs"
                     >
                       Mark as SELECTED
@@ -657,7 +686,7 @@ export default function CompanyApplicationsPage() {
                   {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("OFFERED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "OFFERED")}
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                       className="px-3.5 py-2 bg-emerald-600 text-white font-mono font-bold text-xs rounded-xl hover:bg-emerald-700 cursor-pointer shadow-xs"
                     >
                       Extend Job Offer
@@ -667,7 +696,7 @@ export default function CompanyApplicationsPage() {
                   {APPLICATION_TRANSITIONS[selectedApplication.status]?.includes("REJECTED") && (
                     <button
                       onClick={() => handleStatusChange(selectedApplication.id, "REJECTED")}
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || reviewDirty || reviewBusy}
                       className="px-3.5 py-2 bg-white border border-neutral-300 text-neutral-800 font-mono font-bold text-xs rounded-xl hover:bg-neutral-100 cursor-pointer"
                     >
                       Reject Application

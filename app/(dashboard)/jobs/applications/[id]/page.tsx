@@ -254,7 +254,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                       {new Date(event.timestamp).toLocaleString()}
                     </span>
                   </div>
-                  {event.note && <p className="text-xs text-neutral-600">{event.note}</p>}
+                  {event.note && <p className="text-xs text-neutral-600 whitespace-pre-wrap">{event.note}</p>}
                 </div>
               ))}
             </div>

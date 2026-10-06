@@ -708,9 +708,10 @@ export async function updateInstituteApplicationStatus(
   const { institute } = await getOrCreateInstituteProfile(adminUserId);
   const application = await db.jobApplication.findFirst({
     where: { id: applicationId, user: { instituteId: institute.id } },
+    select:{id:true,status:true},
   });
   if (!application) throw new Error("Application not found or Unauthorized.");
-  if (application.status === newStatus) return application;
+  if (application.status === newStatus) return {id:application.id,status:application.status};
   throw new Error("Forbidden. Hiring status is managed by the employer. Use student mentoring notes to track preparation.");
 }
 

@@ -4,6 +4,7 @@ import { applicationInterview } from "@/lib/jobs/interview-schedule";
 import { db } from "@/lib/db";
 import { ApplicationState, APPLICATION_TRANSITIONS, isApplicationState } from "@/lib/application-state";
 import { ApiError } from "@/lib/api-error";
+import {readEvaluation} from "@/lib/company/applicant-tools";
 
 export interface CreateCompanyJobInput {
   eligibility?:Eligibility;
@@ -571,6 +572,7 @@ export async function getCompanyApplications(
     updatedAt: app.updatedAt.toISOString(),
     coverNote: app.coverNote,
     employerNotes: app.notes,
+    evaluation: readEvaluation(app.evaluationJson),
     interview: applicationInterview(app.timelineJson, app.status),
     resume: readApplicationSnapshot(app).resume,
     snapshotAvailable:Boolean(app.resumeSnapshotJson),
