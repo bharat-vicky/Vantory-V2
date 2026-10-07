@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Mic,
   Square,
@@ -15,13 +15,15 @@ import {
   AlertCircle,
   Edit3,
 } from "lucide-react";
+import { useInterviewVoice } from "./useInterviewVoice";
 import { EvaluatedQuestion } from "@/lib/interview/types";
 
 export interface InterviewRoomProps {
   sessionId?: string;
   startedAt?: string;
   durationMinutes?: number;
-  initialQuestion: { id: string; questionIndex: number; category: string; questionText: string };
+  answeredQuestions?: EvaluatedQuestion[];
+  initialQuestion: { id: string; questionIndex: number; category: string; questionText: string; isFollowUp?: boolean };
   onAnswerSubmit: (questionId: string, text: string, audioDuration?: number) => Promise<{
     evaluatedQuestion: EvaluatedQuestion;
     nextQuestion?: { id: string; questionIndex: number; category: string; questionText: string; isFollowUp: boolean };
@@ -41,7 +43,7 @@ interface ISpeechRecognition {
   stop: () => void;
 }
 
-export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQuestion, onAnswerSubmit, onEndInterview }: InterviewRoomProps) {
+export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQuestions = [], initialQuestion, onAnswerSubmit, onEndInterview }: InterviewRoomProps) {
   const [currentQuestion, setCurrentQuestion] = useState(initialQuestion);
   const [candidateAnswer, setCandidateAnswer] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -51,12 +53,24 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true);
   const [speechError, setSpeechError] = useState<string>("");
-  const [isSpeakingQuestion, setIsSpeakingQuestion] = useState<boolean>(false);
+  const voice = useInterviewVoice(sessionId);
+  const isSpeakingQuestion = voice.status === "speaking";
+  const stopAudio = voice.stop;
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [callMode, setCallMode] = useState(true);
+  const answerRef = useRef("");
+  const submittedRef = useRef(false);
+  const recordingRef = useRef(false);
+  const stopResolve = useRef<(() => void) | null>(null);
+  const setAnswer = (text:string) => { answerRef.current=text;setCandidateAnswer(text); };
+  const speakRef = useRef(voice.speak);
+  speakRef.current=voice.speak;
 
   // Timer state
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [questionCount, setQuestionCount] = useState<number>(initialQuestion.questionIndex);
-  const [recentEvaluations, setRecentEvaluations] = useState<EvaluatedQuestion[]>([]);
+  const [recentEvaluations, setRecentEvaluations] = useState<EvaluatedQuestion[]>(answeredQuestions);
 
   const timedEndRequested = useRef(false);
   const recognitionRef = useRef<unknown>(null);
@@ -74,7 +88,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
   }, [startedAt]);
 
   useEffect(() => {
-    try {if (sessionId) setCandidateAnswer(localStorage.getItem(`interview-draft:${sessionId}:${initialQuestion.id}`) || "");} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
+    try {if (sessionId) setAnswer(localStorage.getItem(`interview-draft:${sessionId}:${initialQuestion.id}`) || "");} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
   }, [sessionId, initialQuestion.id]);
   useEffect(() => {
     try {if (sessionId) localStorage.setItem(`interview-draft:${sessionId}:${currentQuestion.id}`, candidateAnswer);} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
@@ -83,29 +97,15 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
     if (durationMinutes && elapsedSeconds >= durationMinutes*60 && !isSubmitting && !timedEndRequested.current) {timedEndRequested.current=true;onEndInterview();}
   }, [elapsedSeconds, durationMinutes, isSubmitting, onEndInterview]);
 
-  // Web Speech Synthesis (Text-to-Speech replay)
-  const speakQuestion = useCallback((text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.onstart = () => setIsSpeakingQuestion(true);
-      utterance.onend = () => setIsSpeakingQuestion(false);
-      utterance.onerror = () => setIsSpeakingQuestion(false);
-      window.speechSynthesis.speak(utterance);
-    }
-  }, []);
-
-  // Auto-speak new question when question changes
+  // Playback starts only after an explicit user gesture; stop before each turn.
   useEffect(() => {
-    if (currentQuestion?.questionText) {
-      speakQuestion(currentQuestion.questionText);
-    }
-  }, [currentQuestion, speakQuestion]);
+    stopAudio();
+    if (autoPlay) void speakRef.current(currentQuestion);
+  }, [currentQuestion, autoPlay, stopAudio]);
 
   // Web Speech API Initialization for Voice Recording
   useEffect(() => {
+    submittedRef.current=false;
     if (typeof window !== "undefined") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const globalWin = window as any;
@@ -117,25 +117,33 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
         recognition.lang = "en-US";
 
         recognition.onresult = (event: { resultIndex: number; results: Array<Array<{ transcript: string }> & {isFinal:boolean}> }) => {
+          if (submittedRef.current) return;
           let transcript = "";
+          let interim = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             if (event.results[i].isFinal) transcript += event.results[i][0].transcript + " ";
+            else interim += event.results[i][0].transcript + " ";
           }
           if (transcript.trim()) {
-            setCandidateAnswer((prev) => {
-              if (!prev) return transcript;
-              return `${prev} ${transcript}`;
-            });
+            answerRef.current = `${answerRef.current} ${transcript}`.trim();
+            setCandidateAnswer(answerRef.current);
           }
+          setInterimTranscript(interim);
+
         };
 
         recognition.onerror = (err: { error?: string }) => {
-          console.warn("Speech recognition error:", err);
-          setSpeechError("Voice recognition paused or unavailable. You can type your answer directly.");
+          setSpeechError(err.error === "not-allowed" ? "Microphone permission was denied. Allow it in your browser, or type your answer." : err.error === "no-speech" ? "No speech was detected. Try again, or type your answer." : "Voice recognition paused or unavailable. Your transcript is preserved; you can type your answer.");
+          recordingRef.current=false;
+          stopResolve.current?.();stopResolve.current=null;
+          setInterimTranscript("");
           setIsRecording(false);
         };
 
         recognition.onend = () => {
+          recordingRef.current=false;
+          stopResolve.current?.();stopResolve.current=null;
+          setInterimTranscript("");
           setIsRecording(false);
         };
 
@@ -148,7 +156,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
 
   useEffect(() => () => {
     (recognitionRef.current as ISpeechRecognition | null)?.stop();
-    window.speechSynthesis?.cancel();
+    submittedRef.current=true;
   }, []);
 
   // Voice recording timer
@@ -165,14 +173,18 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
   }, [isRecording]);
 
   const startVoiceRecording = () => {
+    if (isSubmitting || recordingRef.current) return;
+    voice.stop();
     setSpeechError("");
     const rec = recognitionRef.current as { start: () => void } | null;
     if (rec) {
       try {
+        submittedRef.current=false;
         rec.start();
+        recordingRef.current=true;
         setIsRecording(true);
-      } catch (err) {
-        console.warn("Start mic error:", err);
+      } catch {
+        setSpeechError("Microphone could not start. Check browser permission or type your answer.");
       }
     } else {
       setSpeechError("Speech recognition not supported in this browser. Please type your answer below.");
@@ -192,16 +204,22 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
   };
 
   const handleSubmit = async () => {
-    if (!candidateAnswer.trim() || isSubmitting) return;
-
-    if (isRecording) {
-      stopVoiceRecording();
-    }
-
+    if (isSubmitting || submittedRef.current) return;
     setIsSubmitting(true);
+    voice.stop();
+    // Recognition may emit the final words only after stop(). Wait for onend.
+    if (recordingRef.current) {
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {stopResolve.current=null;resolve();}, 2000);
+        stopResolve.current=()=>{clearTimeout(timeout);resolve();};
+        stopVoiceRecording();
+      });
+    }
+    if (!answerRef.current.trim()) {setIsSubmitting(false);return;}
+    submittedRef.current=true;
 
     try {
-      const res = await onAnswerSubmit(currentQuestion.id, candidateAnswer, recordingSeconds);
+      const res = await onAnswerSubmit(currentQuestion.id, answerRef.current, recordingSeconds || undefined);
 
       try {if (sessionId) localStorage.removeItem(`interview-draft:${sessionId}:${currentQuestion.id}`);} catch {}
       setRecordingSeconds(0);
@@ -212,12 +230,13 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
         onEndInterview();
       } else {
         setCurrentQuestion(res.nextQuestion);
-        setCandidateAnswer("");
+        setAnswer("");
         setQuestionCount((prev) => prev + 1);
       }
     } catch (err: unknown) {
       setSpeechError(err instanceof Error ? err.message : "Unable to submit. Your answer is preserved; retry.");
     } finally {
+      submittedRef.current=false;
       setIsSubmitting(false);
     }
   };
@@ -256,7 +275,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
           </div>
 
           <button
-            onClick={onEndInterview}
+            onClick={() => {voice.stop();stopVoiceRecording();onEndInterview();}}
             disabled={isSubmitting}
             className="px-3.5 py-1.5 bg-white text-neutral-950 border border-neutral-300 rounded-xl text-xs font-mono font-bold hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
@@ -282,24 +301,43 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-neutral-950 tracking-tight">AI Technical Recruiter</h3>
+                  <h3 className="text-sm font-black text-neutral-950 tracking-tight">AI Practice Interviewer</h3>
                   <span className="text-[10px] font-mono text-neutral-500 font-bold uppercase">
-                    {isSpeakingQuestion ? "Speaking Question..." : "Listening to Candidate"}
+                    {isSubmitting ? "Considering your answer…" : voice.status === "loading" ? "Preparing natural audio…" : isSpeakingQuestion ? "Interviewer speaking" : isRecording ? "Microphone on · your turn" : "Your turn · microphone off"}
                   </span>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => speakQuestion(currentQuestion.questionText)}
+                disabled={isSubmitting || isRecording}
+                onClick={() => {void voice.speak(currentQuestion);}}
                 className="p-2 text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 rounded-xl transition-all flex items-center gap-1.5 text-xs font-mono font-bold border border-neutral-200 cursor-pointer"
                 title="Replay Question Audio"
               >
                 <Volume2 className="w-4 h-4 text-neutral-950" />
-                <span className="hidden sm:inline">Replay Question</span>
+                <span className="hidden sm:inline">Play question</span>
               </button>
             </div>
 
+            <div className="space-y-3 text-xs">
+              <p>AI interview practice. Only answer content is assessed; your accent and voice are not scored.</p>
+              <div className="flex flex-wrap gap-3 items-end">
+                <label className="space-y-1">Interviewer voice
+                  <select aria-label="Interviewer voice" value={voice.selectedVoice} onChange={e=>{voice.stop();voice.setSelectedVoice(e.target.value);}} className="block border rounded-lg p-2 max-w-64">
+                    <option value="">Device default</option>
+                    {voice.cloudEnabled && <optgroup label="Natural Gemini voices"><option value="cloud:Kore">Kore</option><option value="cloud:Aoede">Aoede</option><option value="cloud:Charon">Charon</option></optgroup>}
+                    {voice.voices.map(v=><option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                  </select>
+                </label>
+                <label>Speaking pace<select aria-label="Speaking pace" value={voice.rate} onChange={e=>{voice.stop();voice.setRate(Number(e.target.value));}} className="block border rounded-lg p-2"><option value="0.85">Slower</option><option value="1">Normal</option><option value="1.15">Faster</option></select></label>
+                <button type="button" onClick={voice.stop} disabled={voice.status==="idle"} className="border rounded-lg p-2 disabled:opacity-40">Stop audio</button>
+              </div>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={autoPlay} onChange={e=>setAutoPlay(e.target.checked)}/> Play each new question automatically</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={callMode} onChange={e=>setCallMode(e.target.checked)}/> Interview call mode · save feedback until the report</label>
+              <p className="text-neutral-500">{voice.selectedVoice.startsWith("cloud:") ? "Natural AI voice via Google. Questions are sent for speech generation. Audio replays are reused in this tab." : "Device voice quality depends on your browser. Select a natural Gemini voice for more conversational speech when available."}</p>
+              {voice.error && <p role="alert" className="text-amber-900">{voice.error}</p>}
+            </div>
             {/* Question Text Display */}
             <div className="p-5 bg-neutral-50 border border-neutral-200/80 rounded-2xl space-y-2">
               <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest block font-bold">
@@ -331,11 +369,12 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
                   {!isRecording ? (
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={startVoiceRecording}
                       className="px-3.5 py-1.5 bg-neutral-950 text-white rounded-xl text-xs font-mono font-bold hover:bg-neutral-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Mic className="w-3.5 h-3.5 text-white" />
-                      <span>Start Voice Recording</span>
+                      <span>Speak answer</span>
                     </button>
                   ) : (
                     <button
@@ -355,7 +394,10 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
             <div className="space-y-2">
               <textarea
                 value={candidateAnswer}
-                onChange={(e) => setCandidateAnswer(e.target.value)}
+                aria-label="Your answer"
+                disabled={isSubmitting}
+                maxLength={12000}
+                onChange={(e) => setAnswer(e.target.value)}
                 rows={6}
                 placeholder={
                   isRecording
@@ -365,6 +407,8 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
                 className="w-full text-xs bg-white border border-neutral-300 rounded-2xl p-4 text-neutral-950 font-sans leading-relaxed focus:outline-none focus:border-neutral-950 resize-y shadow-2xs"
               />
 
+              {interimTranscript && <p role="status" className="text-sm text-neutral-500">Hearing: {interimTranscript}</p>}
+              <p className="text-xs text-neutral-500">{!isSpeechSupported && "Voice input is unavailable in this browser. You can type your answer. "}Microphone starts only when you choose Speak answer. Your browser may use its speech service to transcribe audio. Vantory saves the submitted transcript, not a microphone recording. Review it before submitting.</p>
               <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500">
                 <span>{candidateAnswer.trim().split(/\s+/).filter(Boolean).length} words</span>
                 <span>Voice input is transcribed live above</span>
@@ -375,7 +419,8 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
             <div className="flex items-center justify-between gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setCandidateAnswer("")}
+                disabled={isSubmitting || isRecording}
+                onClick={() => setAnswer("")}
                 className="px-4 py-2.5 bg-white text-neutral-600 border border-neutral-300 rounded-xl text-xs font-mono font-bold hover:bg-neutral-50 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -385,7 +430,8 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setCandidateAnswer("I would like to pass this question and move to the next topic.")}
+                  disabled={isSubmitting || isRecording}
+                  onClick={() => setAnswer("I would like to pass this question and move to the next topic.")}
                   className="px-4 py-2.5 bg-white text-neutral-800 border border-neutral-300 rounded-xl text-xs font-mono font-bold hover:bg-neutral-50 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <SkipForward className="w-3.5 h-3.5" />
@@ -395,7 +441,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={!candidateAnswer.trim() || isSubmitting}
+                  disabled={(!candidateAnswer.trim() && !isRecording) || isSubmitting}
                   className="px-6 py-2.5 bg-neutral-950 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer shadow-md"
                 >
                   {isSubmitting ? (
@@ -441,7 +487,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, initialQu
             </div>
 
             {/* Live Progress Checklist */}
-            {recentEvaluations.length > 0 && (
+            {!callMode && recentEvaluations.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-neutral-200">
                 <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider block font-bold">
                   RECENT EVALUATIONS

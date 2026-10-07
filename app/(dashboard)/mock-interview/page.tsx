@@ -5,12 +5,13 @@ import { InterviewSetupWizard } from "@/components/interview/InterviewSetupWizar
 import { InterviewRoom } from "@/components/interview/InterviewRoom";
 import { InterviewReportView } from "@/components/interview/InterviewReportView";
 import { InterviewHistoryView, PastSessionItem } from "@/components/interview/InterviewHistoryView";
-import { FinalInterviewReport, InterviewSetupConfig } from "@/lib/interview/types";
+import { EvaluatedQuestion, FinalInterviewReport, InterviewSetupConfig } from "@/lib/interview/types";
 
 type ViewMode = "SETUP" | "ROOM" | "REPORT" | "HISTORY";
 
 export default function MockInterviewPage() {
   const [error, setError] = useState("");
+  const [answeredQuestions,setAnsweredQuestions]=useState<EvaluatedQuestion[]>([]);
   const [startedAt,setStartedAt]=useState<string>();
   const [durationMinutes,setDurationMinutes]=useState<number>();
   const [viewMode, setViewMode] = useState<ViewMode>("SETUP");
@@ -53,6 +54,7 @@ export default function MockInterviewPage() {
 
   // Handle interview creation & starting
   const handleStartInterview = async (config: InterviewSetupConfig) => {
+    setError("");setAnsweredQuestions([]);
     setIsSubmitting(true);
     try {
       // 1. Create Interview Session
@@ -82,6 +84,7 @@ export default function MockInterviewPage() {
       }
 
       setInitialQuestion(startJson.currentQuestion);
+      setAnsweredQuestions(startJson.answeredQuestions || []);
       setStartedAt(startJson.startedAt);setDurationMinutes(startJson.durationMinutes);
       setViewMode("ROOM");
     } catch (err: unknown) {
@@ -132,6 +135,7 @@ export default function MockInterviewPage() {
     setSessionId(id);setError("");
     try {
       const res=await fetch(`/api/interview/${id}`);const j=await res.json();if(!res.ok) throw new Error(j.error);
+      setAnsweredQuestions(j.answeredQuestions || []);
       if(j.status==="CREATED") {const sr=await fetch(`/api/interview/${id}/start`,{method:"POST"});const sj=await sr.json();if(!sr.ok) throw new Error(sj.error);setInitialQuestion(sj.currentQuestion);setStartedAt(sj.startedAt);setDurationMinutes(sj.durationMinutes);setViewMode("ROOM");}
       else if(j.status==="COMPLETED") {const rr=await fetch(`/api/interview/${id}/report`);const rj=await rr.json();if(!rr.ok) throw new Error(rj.error);setFinalReport(rj.report);setViewMode("REPORT");}
       else if(j.currentQuestion) {setInitialQuestion(j.currentQuestion);setStartedAt(j.startedAt);setDurationMinutes(j.durationMinutes);setViewMode("ROOM");}
@@ -207,6 +211,7 @@ export default function MockInterviewPage() {
           sessionId={sessionId}
           startedAt={startedAt}
           durationMinutes={durationMinutes}
+          answeredQuestions={answeredQuestions}
           initialQuestion={initialQuestion}
           onAnswerSubmit={handleAnswerSubmit}
           onEndInterview={() => handleEndInterview()}

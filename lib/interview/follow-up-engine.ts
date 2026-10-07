@@ -1,4 +1,4 @@
-import { CandidateIntelligenceProfile, QuestionEvaluation } from "./types";
+import { CandidateIntelligenceProfile, InterviewerStyle, QuestionEvaluation } from "./types";
 import { defaultAIProvider } from "./ai-provider";
 
 export class FollowUpEngine {
@@ -9,6 +9,8 @@ export class FollowUpEngine {
     maxFollowUpsAllowed?: number;
   }): boolean {
     const { evaluation, followUpCount, maxFollowUpsAllowed = 3 } = params;
+
+    if (params.candidateAnswerText.trim() === "I would like to pass this question and move to the next topic.") return false;
 
     if (followUpCount >= maxFollowUpsAllowed) return false;
 
@@ -29,13 +31,14 @@ export class FollowUpEngine {
     candidateAnswerText: string;
     evaluation: QuestionEvaluation;
     profile: CandidateIntelligenceProfile;
+    interviewerStyle?: InterviewerStyle;
   }): Promise<{ questionText: string; category: string }> {
     const aiFollowUp = await defaultAIProvider.generateFollowUp({
       questionText: params.questionText,
       candidateAnswerText: params.candidateAnswerText,
       evaluation: params.evaluation,
       profile: params.profile,
-      interviewerStyle: "Professional",
+      interviewerStyle: params.interviewerStyle || "Professional",
     });
 
     if (aiFollowUp) {

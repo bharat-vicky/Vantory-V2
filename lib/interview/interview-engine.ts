@@ -181,6 +181,7 @@ export class InterviewEngine {
         candidateAnswerText,
         evaluation,
         profile,
+        interviewerStyle: config.interviewerStyle,
       });
 
       nextQuestionData = {

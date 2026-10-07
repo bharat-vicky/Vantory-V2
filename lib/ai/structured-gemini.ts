@@ -12,6 +12,7 @@ function diagnose(requestId: string, model: string, category: string, attempt: n
 /** Server-only JSON transport. Never manufactures a successful fallback. */
 export async function generateGeminiJson<T>(options: {
   system: string; input: unknown; validate: (value: unknown) => T; model?: string; schema?: Record<string, unknown>;
+  timeoutMs?: number; attempts?: 1 | 2;
 }): Promise<{ value: T; model: string }> {
   const requestId = randomUUID();
   const started = Date.now();
@@ -26,7 +27,8 @@ export async function generateGeminiJson<T>(options: {
     contents: [{ role: "user", parts: [{ text: JSON.stringify(options.input) }] }],
   };
   if (JSON.stringify(contents).length > 100_000) throw new ApiError("The AI request is too large.", 413);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < (options.attempts || 2); attempt++) {
+    const canRetry = attempt + 1 < (options.attempts || 2);
     const body = JSON.stringify({ ...contents, generationConfig: {
       temperature: model.startsWith("gemini-3") ? 1 : 0,
       responseMimeType: "application/json", maxOutputTokens: 8192,
@@ -37,17 +39,17 @@ export async function generateGeminiJson<T>(options: {
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body, signal: AbortSignal.timeout(20_000),
+        body, signal: AbortSignal.timeout(options.timeoutMs || 20_000),
       });
       if (!response.ok) {
         diagnose(requestId, model, "provider_http", attempt + 1, started, response.status);
         // Recover unavailable legacy models only; quota/auth failures do not
         // trigger a switch. Returned metadata identifies the actual model.
-        if (attempt === 0 && response.status === 404 && /^gemini-2\.5-(flash|flash-lite|pro)$/.test(model)) {
+        if (canRetry && response.status === 404 && /^gemini-2\.5-(flash|flash-lite|pro)$/.test(model)) {
           model = DEFAULT_GEMINI_MODEL;
           continue;
         }
-        if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
+        if (canRetry && (response.status === 429 || response.status >= 500)) {
           const retryAfter = Number(response.headers.get("retry-after"));
           await new Promise(resolve => setTimeout(resolve, Math.min(1500, Math.max(500, retryAfter * 1000 || 500))));
           continue;
@@ -68,7 +70,7 @@ export async function generateGeminiJson<T>(options: {
       if (error instanceof ApiError) throw error;
       if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) category = "timeout";
       diagnose(requestId, model, category, attempt + 1, started);
-      if (attempt === 0 && ["network", "timeout", "incomplete_response", "output_json", "schema_validation"].includes(category)) continue;
+      if (canRetry && ["network", "timeout", "incomplete_response", "output_json", "schema_validation"].includes(category)) continue;
       throw new ApiError(MESSAGE, 503, "AI_UNAVAILABLE");
     }
   }

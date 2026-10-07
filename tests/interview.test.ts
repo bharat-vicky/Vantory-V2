@@ -7,8 +7,33 @@ import {InterviewSetupConfig,QuestionEvaluation} from "../lib/interview/types";
 import {resumeSession,startSession,answerSession} from "../lib/interview/session-service";
 import {db} from "../lib/db";
 import {stubMethod} from "./fixtures";
+import {FollowUpEngine} from "../lib/interview/follow-up-engine";
+import {questionAudio,cloudVoiceEnabled} from "../lib/interview/voice-service";
 const config:InterviewSetupConfig={targetJobTitle:"Data Analyst",jobDescription:"Required SQL and Excel. Python preferred.",interviewType:"FULL",difficulty:"Easy",durationMinutes:10,interviewerStyle:"Professional"};
 const evaluation:QuestionEvaluation={technicalAccuracy:0,relevance:10,depth:0,completeness:0,evidenceScore:0,communication:20,problemSolving:0,overallScore:99,feedback:"JOIN behavior was incorrect.",strengths:[],missingElements:["Retaining unmatched rows"],improvementSuggestions:["Review LEFT JOIN semantics"],exampleAnswerStructure:"Describe matching and unmatched rows",credibilityConcern:false,assessedDimensions:["technicalAccuracy","relevance"],evidenceQuotes:["LEFT JOIN removes unmatched rows"],assessmentVersion:"rubric.v1"};
+
+test("Conversational follow-ups use the answer and selected style, not a repeated checklist",async()=>{
+ const original=globalThis.fetch;process.env.GEMINI_API_KEY="fixture";
+ globalThis.fetch=async(_url,options)=>{const body=JSON.parse(String(options?.body));const input=JSON.parse(body.contents[0].parts[0].text);assert.equal(input.answer,"LEFT JOIN removes unmatched rows");assert.equal(input.style,"Friendly");return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({questionText:"What would happen to a customer with no matching order?"})}]},finishReason:"STOP"}]}));};
+ try {const profile=await buildInterviewContext(config);const q=await FollowUpEngine.generateFollowUpQuestion({questionText:"Explain LEFT JOIN",category:"Technical",candidateAnswerText:"LEFT JOIN removes unmatched rows",evaluation,profile,interviewerStyle:"Friendly"});assert.equal(q.questionText,"What would happen to a customer with no matching order?");} finally {globalThis.fetch=original;delete process.env.GEMINI_API_KEY;}
+});
+test("Follow-up outage preserves assessment and skip requests move on",async()=>{
+ const profile=await buildInterviewContext(config);const q=await defaultAIProvider.generateFollowUp({questionText:"Explain LEFT JOIN",candidateAnswerText:"LEFT JOIN removes unmatched rows",evaluation,profile,interviewerStyle:"Friendly"});assert.match(q!.questionText,/Retaining unmatched rows/);assert.equal(FollowUpEngine.shouldTriggerFollowUp({candidateAnswerText:"I would like to pass this question and move to the next topic.",evaluation,followUpCount:0}),false);assert.equal(FollowUpEngine.shouldTriggerFollowUp({candidateAnswerText:"answer",evaluation,followUpCount:3}),false);
+});
+test("Natural voice enforces question ownership and disabled configuration before provider requests",async()=>{
+ const id="111111111111111111111111",qid="222222222222222222222222";let calls=0;
+ const fetchOriginal=globalThis.fetch;globalThis.fetch=async()=>{calls++;throw new Error();};
+ const restore=stubMethod(db.interviewSession,"findFirst",async({where}:any)=>where.userId==="owner"?{id,status:"ACTIVE",questions:[{id:qid,questionText:"Explain JOIN"}]}:null);
+ try {delete process.env.INTERVIEW_CLOUD_VOICE_ENABLED;assert.equal(cloudVoiceEnabled(),false);await assert.rejects(()=>questionAudio("foreign",id,qid,"Kore"),/not found/);await assert.rejects(()=>questionAudio("owner",id,"333333333333333333333333","Kore"),/not found/);await assert.rejects(()=>questionAudio("owner",id,qid,"invalid"),/Select/);await assert.rejects(()=>questionAudio("owner",id,qid,"Kore"),/not enabled/);assert.equal(calls,0);}finally{restore();globalThis.fetch=fetchOriginal;}
+});
+test("Natural voice speaks only stored questions and returns a valid WAV; malformed output fails safely",async()=>{
+ const original=globalThis.fetch;process.env.GEMINI_API_KEY="fixture";process.env.INTERVIEW_CLOUD_VOICE_ENABLED="true";
+ const id="111111111111111111111111",qid="222222222222222222222222";
+ const restore=stubMethod(db.interviewSession,"findFirst",async()=>({id,status:"ACTIVE",questions:[{id:qid,questionText:"Explain LEFT JOIN"}]}));
+ const wav=Buffer.alloc(46);wav.write("RIFF");wav.write("WAVE",8);let valid=true;
+ globalThis.fetch=async(_url,options)=>{const body=JSON.parse(String(options?.body));assert.equal(body.contents[0].parts[0].text,"Explain LEFT JOIN");assert.equal(body.generationConfig.speechConfig.voiceConfig.voice,"Aoede");return new Response(JSON.stringify({candidates:[{content:{parts:[{inlineData:{mimeType:"audio/wav",data:valid?wav.toString("base64"):"bad"}}]}}]}));};
+ try{assert.deepEqual(await questionAudio("voice-fixture",id,qid,"Aoede"),wav);valid=false;await assert.rejects(()=>questionAudio("voice-fixture",id,qid,"Aoede"),/temporarily unavailable/);}finally{restore();globalThis.fetch=original;delete process.env.GEMINI_API_KEY;delete process.env.INTERVIEW_CLOUD_VOICE_ENABLED;}
+});
 test("Current JD always owns interview context; projects are never invented",async()=>{const p=await buildInterviewContext(config,undefined,JSON.stringify({skillsTable:[{skillName:"Docker",requirementType:"REQUIRED"}]}));assert.ok(p.requiredSkills.includes("SQL"));assert.ok(!p.requiredSkills.includes("Docker"));assert.deepEqual(p.extractedProjects,[]);assert.deepEqual(p.strongAreas,[]);});
 test("Data question bank uses data fundamentals and avoids repeated prompts",async()=>{const profile=await buildInterviewContext(config);const params={profile,interviewType:config.interviewType,difficulty:config.difficulty,interviewerStyle:config.interviewerStyle,category:"Technical Fundamentals",questionIndex:1,previousQuestions:[],previousAnswers:[]};const first=await defaultAIProvider.generateQuestion(params);assert.match(first.questionText,/JOIN/);const next=await defaultAIProvider.generateQuestion({...params,previousQuestions:[first.questionText]});assert.notEqual(next.questionText,first.questionText);});
 test("Rubric rejects invented quotes and scores outside bounds",()=>{assert.equal(validateEvaluation(evaluation,"LEFT JOIN removes unmatched rows"),true);assert.equal(validateEvaluation({...evaluation,technicalAccuracy:101},"LEFT JOIN removes unmatched rows"),false);assert.equal(validateEvaluation(evaluation,"I don't know"),false);});
