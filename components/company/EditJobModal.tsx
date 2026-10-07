@@ -51,7 +51,7 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") !isSubmitting && onClose();
+      if (e.key === "Escape" && !isSubmitting) onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

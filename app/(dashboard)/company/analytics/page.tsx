@@ -1,12 +1,12 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useState,useCallback} from "react";
 import Link from "next/link";
 import type {getHiringAnalytics} from "@/lib/company/hiring-analytics";
 type Analytics=Awaited<ReturnType<typeof getHiringAnalytics>>;
 export default function CompanyAnalyticsPage(){
  const [data,setData]=useState<Analytics|null>(null),[jobId,setJobId]=useState("ALL"),[from,setFrom]=useState(""),[to,setTo]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
- async function load(){setBusy(true);setError("");try{const query=new URLSearchParams({jobId,from,to});const r=await fetch("/api/company/analytics?"+query,{cache:"no-store"}),j=await r.json();if(!r.ok)throw new Error(j.error || "Could not load analytics.");setData(j.analytics);}catch(e){setError(e instanceof Error?e.message:"Could not load analytics.");}finally{setBusy(false);}}
- useEffect(()=>{load();},[]);
+ const load=useCallback(async(scope:{jobId:string;from:string;to:string})=>{setBusy(true);setError("");try{const query=new URLSearchParams(scope);const r=await fetch("/api/company/analytics?"+query,{cache:"no-store"}),j=await r.json();if(!r.ok)throw new Error(j.error || "Could not load analytics.");setData(j.analytics);}catch(e){setError(e instanceof Error?e.message:"Could not load analytics.");}finally{setBusy(false);}},[]);
+ useEffect(()=>{load({jobId:"ALL",from:"",to:""});},[load]);
  const cls="border rounded-lg px-3 py-2 disabled:opacity-50";
  const stageTable=(rows:Analytics["currentStages"])=><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead><tr><th className="py-2">Stage</th><th>Applications</th><th>Share of received applications</th></tr></thead><tbody>{rows.map(r=><tr key={r.status} className="border-t"><th scope="row" className="py-2 font-normal">{r.label}</th><td>{r.count}</td><td>{r.share===null?"—":r.share+"%"}</td></tr>)}</tbody></table></div>;
  return <div className="max-w-6xl space-y-6">
@@ -16,7 +16,7 @@ export default function CompanyAnalyticsPage(){
     <label className="text-sm">Analytics opening<select className="block border rounded p-2 mt-1" disabled={busy} value={jobId} onChange={e=>setJobId(e.target.value)}><option value="ALL">All openings</option>{data?.jobs.map(j=><option value={j.id} key={j.id}>{j.title}</option>)}</select></label>
     <label className="text-sm">Applications received from<input className="block border rounded p-2 mt-1" type="date" disabled={busy} value={from} onChange={e=>setFrom(e.target.value)}/></label>
     <label className="text-sm">Applications received through<input className="block border rounded p-2 mt-1" type="date" disabled={busy} value={to} onChange={e=>setTo(e.target.value)}/></label>
-    <button className={cls} disabled={busy || !!(from && to && from>to)} onClick={load}>{busy?"Loading…":"Apply analytics filters"}</button>
+    <button className={cls} disabled={busy || !!(from && to && from>to)} onClick={()=>load({jobId,from,to})}>{busy?"Loading…":"Apply analytics filters"}</button>
    </div>
    <p className="text-xs text-neutral-600">Dates include whole UTC days and select applications by submission date. Later stage changes for those applications remain included.</p>
    {from && to && from>to && <p role="alert">The start date must be on or before the end date.</p>}

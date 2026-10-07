@@ -1,11 +1,11 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useState,useCallback} from "react";
 import type {PipelineFilters} from "@/lib/company/pipeline-filters";
 import type {SavedApplicantFilter,SavedFilterResponse} from "@/lib/company/saved-filters-types";
 export function SavedApplicantFilters({filters,onApply}:{filters:PipelineFilters;onApply:(filters:PipelineFilters)=>void}){
  const [data,setData]=useState<SavedFilterResponse|null>(null),[selected,setSelected]=useState(""),[name,setName]=useState(""),[busy,setBusy]=useState(false),[notice,setNotice]=useState("");
- async function load(){setBusy(true);try{const r=await fetch("/api/company/applicant-filters",{cache:"no-store"}),j=await r.json();if(!r.ok)throw new Error(j.error);setData(j);}catch(e){setNotice(e instanceof Error?e.message:"Could not load saved filters.");}finally{setBusy(false);}}
- useEffect(()=>{load();},[]);
+ const load=useCallback(async()=>{setBusy(true);try{const r=await fetch("/api/company/applicant-filters",{cache:"no-store"}),j=await r.json();if(!r.ok)throw new Error(j.error);setData(j);}catch(e){setNotice(e instanceof Error?e.message:"Could not load saved filters.");}finally{setBusy(false);}},[]);
+ useEffect(()=>{load();},[load]);
  async function change(action:string,item?:SavedApplicantFilter){
   if(!data)return;setBusy(true);setNotice("");
   try{const r=await fetch("/api/company/applicant-filters",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,name,filters,id:item?.id,expectedRevision:data.revision})}),j=await r.json();if(!r.ok)throw new Error(j.error);setData(j);setNotice(action==="save"?"Current filters saved.":action==="archive"?"Filter archived. You can restore it below.":"Filter restored.");if(action==="save")setSelected(j.items.find((i:SavedApplicantFilter)=>!i.archivedAt && i.name.toLowerCase()===name.trim().toLowerCase())?.id || "");if(action==="archive")setSelected("");}
