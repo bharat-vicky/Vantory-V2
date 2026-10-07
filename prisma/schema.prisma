@@ -116,6 +116,7 @@ model Profile {
   course          String?
   graduationYear  Int?
   careerJson      String?
+  preparationPlanJson String?
   preferencesJson String?
   studentId       String?
   placementStatus String?  @default("LOOKING")
