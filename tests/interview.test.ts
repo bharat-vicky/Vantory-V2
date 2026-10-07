@@ -9,6 +9,7 @@ import {db} from "../lib/db";
 import {stubMethod} from "./fixtures";
 import {FollowUpEngine} from "../lib/interview/follow-up-engine";
 import {questionAudio,cloudVoiceEnabled} from "../lib/interview/voice-service";
+import {selectPracticeQuestion} from "../lib/interview/question-library";
 const config:InterviewSetupConfig={targetJobTitle:"Data Analyst",jobDescription:"Required SQL and Excel. Python preferred.",interviewType:"FULL",difficulty:"Easy",durationMinutes:10,interviewerStyle:"Professional"};
 const evaluation:QuestionEvaluation={technicalAccuracy:0,relevance:10,depth:0,completeness:0,evidenceScore:0,communication:20,problemSolving:0,overallScore:99,feedback:"JOIN behavior was incorrect.",strengths:[],missingElements:["Retaining unmatched rows"],improvementSuggestions:["Review LEFT JOIN semantics"],exampleAnswerStructure:"Describe matching and unmatched rows",credibilityConcern:false,assessedDimensions:["technicalAccuracy","relevance"],evidenceQuotes:["LEFT JOIN removes unmatched rows"],assessmentVersion:"rubric.v1"};
 
@@ -19,6 +20,21 @@ test("Conversational follow-ups use the answer and selected style, not a repeate
 });
 test("Follow-up outage preserves assessment and skip requests move on",async()=>{
  const profile=await buildInterviewContext(config);const q=await defaultAIProvider.generateFollowUp({questionText:"Explain LEFT JOIN",candidateAnswerText:"LEFT JOIN removes unmatched rows",evaluation,profile,interviewerStyle:"Friendly"});assert.match(q!.questionText,/Retaining unmatched rows/);assert.equal(FollowUpEngine.shouldTriggerFollowUp({candidateAnswerText:"I would like to pass this question and move to the next topic.",evaluation,followUpCount:0}),false);assert.equal(FollowUpEngine.shouldTriggerFollowUp({candidateAnswerText:"answer",evaluation,followUpCount:3}),false);
+});
+test("Optional follow-ups have one bounded request; quota errors fall back without retries",async()=>{
+ const original=globalThis.fetch;process.env.GEMINI_API_KEY="fixture";let calls=0;
+ globalThis.fetch=async()=>{calls++;return new Response("{}",{status:429});};
+ try {const profile=await buildInterviewContext(config);const q=await defaultAIProvider.generateFollowUp({questionText:"Explain LEFT JOIN",candidateAnswerText:"LEFT JOIN removes unmatched rows",evaluation,profile,interviewerStyle:"Friendly"});assert.match(q!.questionText,/Retaining unmatched rows/);assert.equal(calls,1);}finally{globalThis.fetch=original;delete process.env.GEMINI_API_KEY;}
+});
+test("Technical question categories describe the actual question, not an unrelated stage label",async()=>{
+ const profile=await buildInterviewContext(config);const q=await defaultAIProvider.generateQuestion({profile,interviewType:"TECHNICAL",difficulty:"Easy",interviewerStyle:"Friendly",category:"System Design & Scaling",questionIndex:2,previousQuestions:[],previousAnswers:[]});assert.match(q.questionText,/JOIN/);assert.equal(q.category,"Technical Fundamentals");
+});
+test("Exhausted SQL banks do not drift into API questions because of an unfamiliar role title",async()=>{
+ const profile=await buildInterviewContext({...config,targetJobTitle:"QA ONLY - Interview",jobDescription:"Required SQL and Excel."});const first=selectPracticeQuestion(profile,"Easy",[]);assert.equal(first?.skill,"SQL");assert.equal(selectPracticeQuestion(profile,"Easy",[first!.prompt]),undefined);const next=await defaultAIProvider.generateQuestion({profile,interviewType:"TECHNICAL",difficulty:"Easy",interviewerStyle:"Friendly",category:"Technical Fundamentals",questionIndex:2,previousQuestions:[first!.prompt],previousAnswers:[]});assert.doesNotMatch(next.questionText,/idempotency|orders after a timeout/i);assert.match(next.questionText,/SQL|Excel/);
+});
+test("Completed interview audio cannot spend provider quota",async()=>{
+ const id="111111111111111111111111",qid="222222222222222222222222";const restore=stubMethod(db.interviewSession,"findFirst",async()=>({id,status:"COMPLETED",questions:[{id:qid,questionText:"SQL?"}]}));
+ try{await assert.rejects(()=>questionAudio("owner",id,qid,"Kore"),/active interview/);}finally{restore();}
 });
 test("Natural voice enforces question ownership and disabled configuration before provider requests",async()=>{
  const id="111111111111111111111111",qid="222222222222222222222222";let calls=0;

@@ -341,7 +341,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
             {/* Question Text Display */}
             <div className="p-5 bg-neutral-50 border border-neutral-200/80 rounded-2xl space-y-2">
               <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest block font-bold">
-                QUESTION #{questionCount} • {currentQuestion.category}
+                {currentQuestion.isFollowUp ? "FOLLOW-UP" : "QUESTION"} #{questionCount} • {currentQuestion.category}
               </span>
               <p className="text-base sm:text-lg font-bold text-neutral-950 leading-relaxed font-serif">
                 &ldquo;{currentQuestion.questionText}&rdquo;
@@ -383,7 +383,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
                       className="px-3.5 py-1.5 bg-red-600 text-white rounded-xl text-xs font-mono font-bold hover:bg-red-700 transition-all flex items-center gap-1.5 cursor-pointer animate-pulse shadow-xs"
                     >
                       <Square className="w-3.5 h-3.5 text-white fill-white" />
-                      <span>Stop Recording ({formatTimer(recordingSeconds)})</span>
+                      <span>Stop microphone ({formatTimer(recordingSeconds)})</span>
                     </button>
                   )}
                 </div>

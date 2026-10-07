@@ -373,20 +373,22 @@ export function InterviewSetupWizard({ onStartInterview, isSubmitting = false }:
                   { id: "RESUME_BASED", label: "Resume Probing", desc: "Direct project & claim probing" },
                   { id: "JOB_SPECIFIC", label: "Job-Specific Requirements", desc: "Strict JD alignment" },
                 ].map((type) => (
-                  <div
+                  <button
                     key={type.id}
+                    type="button"
+                    aria-pressed={interviewType === type.id}
                     onClick={() => setInterviewType(type.id as InterviewType)}
-                    className={`p-3 rounded-2xl border text-xs cursor-pointer transition-all space-y-0.5 ${
+                    className={`p-3 rounded-2xl border text-xs text-left cursor-pointer transition-all space-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       interviewType === type.id
                         ? "bg-neutral-950 text-white border-neutral-950 font-bold shadow-sm"
                         : "bg-white border-neutral-200/80 text-neutral-800 hover:border-neutral-400"
                     }`}
                   >
-                    <div className="font-extrabold">{type.label}</div>
-                    <div className={`text-[10px] ${interviewType === type.id ? "text-neutral-400" : "text-neutral-500"}`}>
+                    <span className="block font-extrabold">{type.label}</span>
+                    <span className={`block text-[10px] ${interviewType === type.id ? "text-neutral-400" : "text-neutral-500"}`}>
                       {type.desc}
-                    </div>
-                  </div>
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>

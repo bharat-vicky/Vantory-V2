@@ -59,7 +59,7 @@ class RubricProvider implements AIProvider {
     const {profile,category} = params;
     if (category === "Technical Fundamentals" || category === "System Design & Scaling") {
       const item = selectPracticeQuestion(profile,params.difficulty,params.previousQuestions);
-      if (item) return {questionText:item.prompt,category};
+      if (item) return {questionText:item.prompt,category:item.category};
       return {questionText:`For ${profile.targetJobTitle}, describe a different real example involving ${profile.requiredSkills[params.questionIndex % Math.max(1,profile.requiredSkills.length)] || "a relevant technical skill"}. Explain the assumptions, failure cases and how you tested it. Example ${params.questionIndex + 1}.`,category};
     }
     const project = profile.extractedProjects[0];

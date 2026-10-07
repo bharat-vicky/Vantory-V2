@@ -92,5 +92,9 @@ export function selectPracticeQuestion(profile:CandidateIntelligenceProfile, dif
     const roleIndex = defaults.indexOf(q.id.split("-")[0]);
     return (exact ? 100 : preferred ? 40 : 0) + (roleIndex >= 0 ? 20-roleIndex : 0) - (seenSkills.includes(q.skill) ? 150 : 0);
   };
-  return PRACTICE_QUESTIONS.filter(q=>q.difficulty===difficulty && !previousQuestions.some(text=>text.includes(q.prompt))).sort((a,b)=>priority(b)-priority(a))[0];
+  const explicit = PRACTICE_QUESTIONS.filter(q=>[...profile.requiredSkills,...profile.preferredSkills].some(s=>textDemonstratesSkill(q.skill,s) || textDemonstratesSkill(s,q.skill)));
+  // Exhausting a relevant bank must not silently switch to an unrelated skill.
+  // The caller asks a role-specific real example when this pool is exhausted.
+  const pool = explicit.length ? explicit : PRACTICE_QUESTIONS.filter(q=>defaults.includes(q.id.split("-")[0]));
+  return pool.filter(q=>q.difficulty===difficulty && !previousQuestions.some(text=>text.includes(q.prompt))).sort((a,b)=>priority(b)-priority(a))[0];
 }
