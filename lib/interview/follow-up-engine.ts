@@ -1,5 +1,6 @@
 import { CandidateIntelligenceProfile, InterviewerStyle, QuestionEvaluation } from "./types";
 import { defaultAIProvider } from "./ai-provider";
+import { isPassedAnswer } from "./turns";
 
 export class FollowUpEngine {
   public static shouldTriggerFollowUp(params: {
@@ -10,7 +11,7 @@ export class FollowUpEngine {
   }): boolean {
     const { evaluation, followUpCount, maxFollowUpsAllowed = 3 } = params;
 
-    if (params.candidateAnswerText.trim() === "I would like to pass this question and move to the next topic.") return false;
+    if (isPassedAnswer(params.candidateAnswerText)) return false;
 
     if (followUpCount >= maxFollowUpsAllowed) return false;
 

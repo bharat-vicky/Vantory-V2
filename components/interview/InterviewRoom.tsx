@@ -16,6 +16,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { useInterviewVoice } from "./useInterviewVoice";
+import { PASSED_ANSWER } from "@/lib/interview/turns";
 import { EvaluatedQuestion } from "@/lib/interview/types";
 
 export interface InterviewRoomProps {
@@ -343,7 +344,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
               <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest block font-bold">
                 {currentQuestion.isFollowUp ? "FOLLOW-UP" : "QUESTION"} #{questionCount} • {currentQuestion.category}
               </span>
-              <p className="text-base sm:text-lg font-bold text-neutral-950 leading-relaxed font-serif">
+              <p aria-live="polite" className="text-base sm:text-lg font-bold text-neutral-950 leading-relaxed font-serif">
                 &ldquo;{currentQuestion.questionText}&rdquo;
               </p>
             </div>
@@ -431,7 +432,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
                 <button
                   type="button"
                   disabled={isSubmitting || isRecording}
-                  onClick={() => setAnswer("I would like to pass this question and move to the next topic.")}
+                  onClick={() => {setAnswer(PASSED_ANSWER);void handleSubmit();}}
                   className="px-4 py-2.5 bg-white text-neutral-800 border border-neutral-300 rounded-xl text-xs font-mono font-bold hover:bg-neutral-50 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <SkipForward className="w-3.5 h-3.5" />

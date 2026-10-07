@@ -10,6 +10,8 @@ import {stubMethod} from "./fixtures";
 import {FollowUpEngine} from "../lib/interview/follow-up-engine";
 import {questionAudio,cloudVoiceEnabled} from "../lib/interview/voice-service";
 import {selectPracticeQuestion} from "../lib/interview/question-library";
+import {AnswerEvaluator} from "../lib/interview/answer-evaluator";
+import {PASSED_ANSWER} from "../lib/interview/turns";
 const config:InterviewSetupConfig={targetJobTitle:"Data Analyst",jobDescription:"Required SQL and Excel. Python preferred.",interviewType:"FULL",difficulty:"Easy",durationMinutes:10,interviewerStyle:"Professional"};
 const evaluation:QuestionEvaluation={technicalAccuracy:0,relevance:10,depth:0,completeness:0,evidenceScore:0,communication:20,problemSolving:0,overallScore:99,feedback:"JOIN behavior was incorrect.",strengths:[],missingElements:["Retaining unmatched rows"],improvementSuggestions:["Review LEFT JOIN semantics"],exampleAnswerStructure:"Describe matching and unmatched rows",credibilityConcern:false,assessedDimensions:["technicalAccuracy","relevance"],evidenceQuotes:["LEFT JOIN removes unmatched rows"],assessmentVersion:"rubric.v1"};
 
@@ -35,6 +37,9 @@ test("Exhausted SQL banks do not drift into API questions because of an unfamili
 test("Completed interview audio cannot spend provider quota",async()=>{
  const id="111111111111111111111111",qid="222222222222222222222222";const restore=stubMethod(db.interviewSession,"findFirst",async()=>({id,status:"COMPLETED",questions:[{id:qid,questionText:"SQL?"}]}));
  try{await assert.rejects(()=>questionAudio("owner",id,qid,"Kore"),/active interview/);}finally{restore();}
+});
+test("A passed question earns no fabricated clarity credit and makes no AI request",async()=>{
+ const profile=await buildInterviewContext(config);const e=await AnswerEvaluator.evaluateCandidateAnswer({questionText:"Explain SQL",category:"Technical Fundamentals",candidateAnswerText:PASSED_ANSWER,profile,difficulty:"Easy",interviewerStyle:"Friendly"});assert.equal(e.overallScore,0);assert.equal(e.communication,0);assert.deepEqual(e.assessedDimensions,["relevance"]);assert.equal(e.provider,"practice-pass");assert.match(e.feedback,/No answer was supplied/);
 });
 test("Natural voice enforces question ownership and disabled configuration before provider requests",async()=>{
  const id="111111111111111111111111",qid="222222222222222222222222";let calls=0;
