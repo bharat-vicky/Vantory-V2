@@ -47,6 +47,7 @@ interface CompanyJobItem {
   experience: string;
   salary?: string;
   status: string;
+  displayStatus: string;
   postedAt: string;
   applicationsCount: number;
 }
@@ -286,7 +287,7 @@ export default function CompanyDashboardPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-mono font-bold text-neutral-950 block">{job.applicationsCount} Apps</span>
-                    <span className="text-[10px] font-mono text-neutral-400">{job.status}</span>
+                    <span className="text-[10px] font-mono text-neutral-400">{job.displayStatus}</span>
                   </div>
                 </div>
               ))}
