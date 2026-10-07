@@ -605,7 +605,7 @@ export default function CompanyApplicationsPage() {
                   </div>
                 )}
 
-                {discardConfirm && <div role="group" aria-label="Unsaved review changes" className="border rounded p-3 space-y-2"><p>Discard unsaved notes, evaluation or candidate update?</p><button className="border rounded px-3 py-2" onClick={()=>{setDiscardConfirm(false);setReviewDirty(false);setSelectedApplication(null);}}>Discard and close review</button><button className="border rounded px-3 py-2 ml-2" onClick={()=>setDiscardConfirm(false)}>Keep reviewing</button></div>}
+
                 <ApplicantReviewTools key={`review-${selectedApplication.id}`} id={selectedApplication.id} status={selectedApplication.status} updatedAt={selectedApplication.updatedAt} evaluation={selectedApplication.evaluation} disabled={isUpdatingStatus || notesDirty} onDirtyChange={setReviewDirty} onBusyChange={setReviewBusy} onSaved={result=>{
                   setSelectedApplication(previous=>previous ? {...previous,...result} : null);
                   setApplications(items=>items.map(item=>item.id===selectedApplication.id ? {...item,...result} : item));
@@ -637,6 +637,8 @@ export default function CompanyApplicationsPage() {
 
               {/* Fixed Bottom Action Footer - ALWAYS VISIBLE AT ALL TIMES */}
               <div className="p-4 sm:p-5 border-t border-neutral-200 bg-neutral-50 shrink-0 rounded-b-2xl sm:rounded-b-3xl flex flex-wrap items-center justify-between gap-3">
+                {discardConfirm && <div role="group" aria-label="Unsaved review changes" className="w-full border rounded p-3 space-y-2"><p>Discard unsaved notes, evaluation or candidate update?</p><button disabled={isUpdatingStatus || reviewBusy} className="border rounded px-3 py-2" onClick={()=>{setDiscardConfirm(false);setReviewDirty(false);setSelectedApplication(null);}}>Discard and close review</button><button disabled={isUpdatingStatus || reviewBusy} className="border rounded px-3 py-2 ml-2" onClick={()=>setDiscardConfirm(false)}>Keep reviewing</button></div>}
+
                 <div className="flex items-center gap-2 font-mono text-xs">
                   <span className="text-neutral-500 font-medium">Status:</span>
                   {getStatusBadge(selectedApplication.status)}
