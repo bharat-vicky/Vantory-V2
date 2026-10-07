@@ -12,6 +12,7 @@ export function jobFields(value:unknown,current?:JobPosting,now=new Date()){
  if(!["ACTIVE","DRAFT","PAUSED","CLOSED"].includes(String(status)))throw new ApiError("Unsupported job status.");
  if(!current && !["ACTIVE","DRAFT"].includes(String(status)))throw new ApiError("New jobs must be a draft or active.");
  if(current && current.status!=="DRAFT" && status==="DRAFT")throw new ApiError("Published jobs cannot become drafts. Close the opening or clone it as a draft.");
+ if(current?.status==="DRAFT" && !["DRAFT","ACTIVE"].includes(String(status)))throw new ApiError("Keep this opening as a private draft or publish it. Only published openings can be paused or closed.");
  const text=(key:keyof JobPosting,max:number,fallback="")=>{
   const v=b[key]===undefined?current?.[key] ?? fallback:b[key];
   if(v==null)return "";

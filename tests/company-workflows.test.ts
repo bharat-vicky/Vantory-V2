@@ -24,6 +24,8 @@ test("Draft content and publishing requirements",()=>{
  for(const body of [{title:""},{title:"Draft"},{title:"Draft",status:"WRONG"},{title:"Draft",status:"CLOSED"},{...source,expiresAt:now.toISOString()},{...source,expiresAt:"2026-02-30T00:00:00.000Z"}])assert.throws(()=>jobFields(body,undefined,now));
  assert.equal(jobFields({...source,expiresAt:null},undefined,now).expiresAt,null);
  assert.throws(()=>jobFields({status:"DRAFT"},source,now));
+ // Only published test: closing or pausing cannot expose an unpublished draft.
+ for(const status of ["CLOSED","PAUSED"])assert.throws(()=>jobFields({status},{...source,status:"DRAFT"},now),/private draft/);
  assert.throws(()=>jobFields({status:"ACTIVE"},{...source,status:"DRAFT",expiresAt:now},now));
 });
 test("Job fields enforce ranges, URLs, eligibility and ownership whitelist",()=>{

@@ -260,9 +260,9 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
                     className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 text-neutral-950 font-bold focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 cursor-pointer"
                   >
                     {originalStatus === "DRAFT" && <option value="DRAFT">DRAFT (Private)</option>}
-                    <option value="PAUSED">PAUSED</option>
+                    {originalStatus !== "DRAFT" && <option value="PAUSED">PAUSED</option>}
                     <option value="ACTIVE">ACTIVE (Published)</option>
-                    <option value="CLOSED">CLOSED (Archived)</option>
+                    {originalStatus !== "DRAFT" && <option value="CLOSED">CLOSED (Archived)</option>}
                   </select>
                 </div>
               </div>
