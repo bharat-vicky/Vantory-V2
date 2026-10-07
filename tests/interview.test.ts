@@ -41,6 +41,14 @@ test("Completed interview audio cannot spend provider quota",async()=>{
 test("A passed question earns no fabricated clarity credit and makes no AI request",async()=>{
  const profile=await buildInterviewContext(config);const e=await AnswerEvaluator.evaluateCandidateAnswer({questionText:"Explain SQL",category:"Technical Fundamentals",candidateAnswerText:PASSED_ANSWER,profile,difficulty:"Easy",interviewerStyle:"Friendly"});assert.equal(e.overallScore,0);assert.equal(e.communication,0);assert.deepEqual(e.assessedDimensions,["relevance"]);assert.equal(e.provider,"practice-pass");assert.match(e.feedback,/No answer was supplied/);
 });
+test("Reports include measured follow-up corrections in the original skill without inventing untested coverage",async()=>{
+ const profile=await buildInterviewContext(config);
+ const parent={id:"parent",sessionId:"s",questionIndex:1,category:"Technical Fundamentals",questionText:"Explain INNER JOIN and LEFT JOIN using customers and orders. How do you keep customers with no orders?",candidateAnswerText:"Incorrect answer",evaluation:{...evaluation,assessedSkill:"SQL",technicalAccuracy:0,overallScore:10},isFollowUp:false};
+ const follow={id:"follow",sessionId:"s",questionIndex:2,category:"Concept Follow-Up",questionText:"What happens to a customer without orders?",candidateAnswerText:"They stay in a LEFT JOIN with NULL order fields.",evaluation:{...evaluation,technicalAccuracy:100,overallScore:90,assessedSkill:undefined},isFollowUp:true,followUpParentId:"parent"};
+ const report=ReportGenerator.generateFinalReport({sessionId:"s",profile,evaluatedQuestions:[parent,follow]});assert.equal(report.roleReadinessBreakdown.SQL,50);assert.equal(report.roleReadinessBreakdown.Excel,null);
+ const detached=ReportGenerator.generateFinalReport({sessionId:"s",profile,evaluatedQuestions:[{...follow,followUpParentId:"missing"}]});assert.equal(detached.roleReadinessBreakdown.SQL,null);
+ const unmeasured=ReportGenerator.generateFinalReport({sessionId:"s",profile,evaluatedQuestions:[parent,{...follow,evaluation:{...follow.evaluation,assessedDimensions:["relevance"]}}]});assert.equal(unmeasured.roleReadinessBreakdown.SQL,0);
+});
 test("Natural voice enforces question ownership and disabled configuration before provider requests",async()=>{
  const id="111111111111111111111111",qid="222222222222222222222222";let calls=0;
  const fetchOriginal=globalThis.fetch;globalThis.fetch=async()=>{calls++;throw new Error();};
