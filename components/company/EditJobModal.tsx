@@ -206,6 +206,7 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
           </div>
 
           <button
+            aria-label="Close job editor"
             onClick={() => !isSubmitting && onClose()}
             className="p-2 rounded-xl text-neutral-400 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
           >

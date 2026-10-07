@@ -246,8 +246,8 @@ export default function CompanyDashboardPage() {
         <div className="bg-white border border-neutral-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
             <div>
-              <h2 className="text-base font-extrabold text-neutral-950">Active Openings</h2>
-              <p className="text-xs text-neutral-500 font-mono">Published corporate engineering roles</p>
+              <h2 className="text-base font-extrabold text-neutral-950">Recent openings</h2>
+              <p className="text-xs text-neutral-500 font-mono">Recently created jobs, including drafts and closed openings</p>
             </div>
             <Link
               href="/company/jobs"

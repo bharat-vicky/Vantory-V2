@@ -168,11 +168,12 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-extrabold text-neutral-950">Post New Corporate Opening</h2>
-                <p className="text-xs text-neutral-500 font-mono">Job will immediately appear in candidate marketplace</p>
+                <p className="text-xs text-neutral-500 font-mono">Save privately as a draft, or publish to the candidate marketplace when ready.</p>
               </div>
             </div>
 
             <button
+              aria-label="Close job editor"
               onClick={() => !isSubmitting && onClose()}
               className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-950 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
@@ -409,7 +410,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Publishing...</span>
+                  <span>Saving...</span>
                 </>
               ) : (
                 <>
