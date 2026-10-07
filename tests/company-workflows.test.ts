@@ -8,6 +8,12 @@ import {analyticsFilters,summarizeHiring,getHiringAnalytics} from "../lib/compan
 import {getJobById} from "../lib/jobs/jobs-service";
 import {db} from "../lib/db";
 import {stubMethod} from "./fixtures";
+import {createRequire} from "node:module";
+import {signToken} from "../lib/auth/jwt";
+import * as analyticsRoute from "../app/api/company/analytics/route";
+import * as filtersRoute from "../app/api/company/applicant-filters/route";
+import * as jobRoute from "../app/api/company/jobs/[id]/route";
+import {applyToJob} from "../lib/jobs/jobs-service";
 const owner="111111111111111111111111",id="222222222222222222222222",foreign="333333333333333333333333",now=new Date("2026-10-07T00:00:00.000Z");
 const source={id,companyUserId:owner,title:"Engineer",status:"ACTIVE",description:"Synthetic description",requirements:"Synthetic requirements",updatedAt:now,expiresAt:new Date("2030-01-01T00:00:00.000Z"),verificationStatus:"VERIFIED",company:"Source company",workMode:"Remote",type:"Full-time",salaryPeriod:"year",eligibilityJson:'{"minCgpa":6}'} as JobPosting;
 const filters={search:" QA ",jobId:"ALL",status:"WITHDRAWN",from:"2026-10-06",to:"2026-10-07",sort:"UPDATED" as const};
@@ -34,6 +40,20 @@ test("Deadline equality is expired and drafts and unverified jobs never become a
  assert.deepEqual(activeJobWhere(now).OR,[{expiresAt:null},{expiresAt:{isSet:false}},{expiresAt:{gt:now}}]);
 });
 test("Draft public details remain hidden even with a known id",async()=>{await fixture(async()=>assert.equal(await getJobById(id),null),[[db.jobPosting,"findUnique",async()=>({...source,status:"DRAFT"})]]);});
+test("Expired applications fail before reading or writing candidate resume data",async()=>{
+ await fixture(async()=>assert.rejects(applyToJob(owner,id,foreign),/expired/),[[db.jobPosting,"findUnique",async()=>({...source,expiresAt:new Date(0)})]]);
+});
+test("Company APIs reject candidate and institute roles before accessing job or analytics data",async()=>{
+ const require=createRequire(import.meta.url),{RequestCookies}=require("next/dist/compiled/@edge-runtime/cookies");
+ for(const role of ["CANDIDATE","INSTITUTE_ADMIN"]){
+  const token=await signToken({userId:owner,role,email:"fixture@example.test",sessionId:crypto.randomUUID()});
+  await fixture(async()=>{
+   assert.equal((await analyticsRoute.GET(new Request("http://localhost/api/company/analytics"))).status,403);
+   assert.equal((await filtersRoute.GET()).status,403);
+   assert.equal((await jobRoute.GET(new Request("http://localhost/api/company/jobs/"+id),{params:Promise.resolve({id})})).status,403);
+  },[[require("next/headers"),"cookies",async()=>new RequestCookies(new Headers({cookie:"vantory_session="+token}))],[db.authSession,"findUnique",async()=>({userId:owner,revokedAt:null,expiresAt:new Date(Date.now()+60000)})],[db.user,"findUnique",async()=>({id:owner,role,isActive:true,emailVerifiedAt:new Date()})]]);
+ }
+});
 test("Create and clone bind company identity, reset expiry and never copy applicants or identifiers",async()=>{
  const creates:any[]=[],audits:any[]=[];
  await fixture(async()=>{

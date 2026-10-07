@@ -177,7 +177,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="min-h-screen bg-white text-neutral-950 font-sans p-6 md:p-10 space-y-8">
-      <JobWorkspace jobId={jobId} onResumeSelect={setWorkspaceResumeId}/>
+      <JobWorkspace jobId={jobId} available={job.isAvailable && !deadlinePassed} onResumeSelect={setWorkspaceResumeId}/>
       {/* Back Link */}
       <div>
         <Link
