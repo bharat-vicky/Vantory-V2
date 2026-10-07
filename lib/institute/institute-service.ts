@@ -1,3 +1,4 @@
+import {activeJobWhere} from "@/lib/jobs/availability";
 import { defaultCareer,parseJson } from "@/lib/candidate/profile";
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
@@ -514,7 +515,7 @@ export async function getInstituteJobs(adminUserId: string) {
 
   const [jobs, instituteStudents] = await Promise.all([
     db.jobPosting.findMany({
-      where: { status: "ACTIVE" },
+      where: activeJobWhere(),
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
@@ -568,7 +569,7 @@ export async function getInstituteJobDetails(
     where: { id: jobId },
   });
 
-  if (!job) throw new Error("Job posting not found.");
+  if (!job || job.status==="DRAFT") throw new Error("Job posting not found.");
 
   const instituteStudents = await db.user.findMany({
     where: { instituteId: institute.id },
@@ -777,7 +778,7 @@ export async function seedInstituteDemoApplications(adminUserId: string) {
   }
 
   const jobs = await db.jobPosting.findMany({
-    where: { status: "ACTIVE" },
+    where: activeJobWhere(),
     take: 4,
   });
 

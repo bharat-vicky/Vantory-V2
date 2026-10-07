@@ -45,6 +45,9 @@ interface JobDetailData {
   postedAt: string;
   isSaved?: boolean;
   hasApplied?: boolean;
+  isAvailable: boolean;
+  displayStatus: string;
+  expiresAt: string | null;
 }
 
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -62,6 +65,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   // Apply Modal state
   const [isApplyModalOpen, setIsApplyModalOpen] = useState<boolean>(false);
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {const timer=setInterval(()=>setClock(Date.now()),1000);return ()=>clearInterval(timer);},[]);
+  const deadlinePassed=Boolean(job?.expiresAt && Date.parse(job.expiresAt)<=clock);
 
   const companyWebsiteUrl = job?.companyUrl && job.companyUrl.trim() ? job.companyUrl.trim() : "";
 
@@ -234,6 +240,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
           {/* Action CTAs */}
           <div className="flex flex-wrap md:flex-col items-stretch gap-3 shrink-0">
+            {job.expiresAt && <p className="text-xs">Application deadline: {new Date(job.expiresAt).toLocaleString()}</p>}
             {job.hasApplied ? (
               <span className="px-5 py-3 bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-mono font-bold text-neutral-900 flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-neutral-950" />
@@ -241,11 +248,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </span>
             ) : (
               <button
+                disabled={!job.isAvailable || deadlinePassed}
                 onClick={() => setIsApplyModalOpen(true)}
                 className="px-6 py-3 bg-neutral-950 text-white font-extrabold text-xs rounded-xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
               >
                 <Send className="w-4 h-4 text-white" />
-                <span>Apply with Vantory Resume</span>
+                <span>{deadlinePassed ? "Application deadline passed" : !job.isAvailable ? "Applications unavailable" : "Apply with Vantory Resume"}</span>
               </button>
             )}
 

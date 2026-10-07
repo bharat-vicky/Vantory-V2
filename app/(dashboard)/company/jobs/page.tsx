@@ -17,6 +17,9 @@ interface CompanyJobItem {
   salary?: string;
   status: string;
   postedAt: string;
+  expiresAt: string | null;
+  displayStatus: string;
+  updatedAt: string;
   applicationsCount: number;
 }
 
@@ -27,18 +30,16 @@ export default function CompanyJobsPage() {
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [topBannerMsg, setTopBannerMsg] = useState<string>("");
 
+  const [error,setError]=useState("");
+  const [busyJob,setBusyJob]=useState<string|null>(null);
   const loadJobs = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/company/jobs");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.jobs)) {
-          setJobs(json.jobs);
-        }
-      }
-    } catch {
-      // Handle silently
+      const json=await res.json();
+      if(!res.ok || !json.success) throw new Error(json.error || "Unable to load openings.");
+      setJobs(json.jobs); setError("");
+    } catch(e) {setError(e instanceof Error?e.message:"Unable to load openings.");
     } finally {
       setIsLoading(false);
     }
@@ -62,20 +63,23 @@ export default function CompanyJobsPage() {
     }
   };
 
-  const handleToggleJobStatus = async (jobId: string, currentStatus: string) => {
-    const nextStatus = currentStatus === "ACTIVE" ? "CLOSED" : "ACTIVE";
+  const handleToggleJobStatus = async (job:CompanyJobItem) => {
+    if (busyJob) return;
+    if(job.status!=="ACTIVE"){setEditingJobId(job.id);return;}
+    setBusyJob(job.id);setError("");
     try {
-      const res = await fetch(`/api/company/jobs/${jobId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (res.ok) {
-        loadJobs();
-      }
-    } catch {
-      // Handle silently
-    }
+      const res=await fetch(`/api/company/jobs/${job.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"CLOSED",expectedUpdatedAt:job.updatedAt})});
+      const json=await res.json();if(!res.ok || !json.success)throw new Error(json.error || "Unable to close opening.");
+      await loadJobs();
+    }catch(e){setError(e instanceof Error?e.message:"Unable to close opening.");}finally{setBusyJob(null);}
+  };
+  const cloneJob=async(job:CompanyJobItem)=>{
+    if(busyJob)return;setBusyJob(job.id);setError("");
+    try{
+      const res=await fetch(`/api/company/jobs/${job.id}/clone`,{method:"POST"});const json=await res.json();
+      if(!res.ok || !json.success)throw new Error(json.error || "Unable to clone opening.");
+      await loadJobs();setEditingJobId(json.job.id);setTopBannerMsg("Cloned as a private draft. Review details and choose a new deadline before publishing.");
+    }catch(e){setError(e instanceof Error?e.message:"Unable to clone opening.");}finally{setBusyJob(null);}
   };
 
   return (
@@ -130,6 +134,7 @@ export default function CompanyJobsPage() {
         </div>
       </div>
 
+      {error && <p role="alert" className="border border-red-200 bg-red-50 p-4 rounded-xl">{error}</p>}
       {/* Content Area */}
       {isLoading ? (
         <div className="space-y-4">
@@ -177,7 +182,7 @@ export default function CompanyJobsPage() {
                         : "bg-neutral-100 text-neutral-500 border border-neutral-200"
                     }`}
                   >
-                    {job.status}
+                    {job.displayStatus}
                   </span>
                 </div>
 
@@ -192,7 +197,8 @@ export default function CompanyJobsPage() {
                 </div>
 
                 <div className="text-[11px] font-mono text-neutral-400">
-                  Posted {new Date(job.postedAt).toLocaleDateString()} • {job.applicationsCount} Applications Received
+                  {job.status === "DRAFT" ? "Created draft" : "Published"} {new Date(job.postedAt).toLocaleDateString()} • {job.applicationsCount} Applications Received
+                  {job.expiresAt && <div>Deadline: {new Date(job.expiresAt).toLocaleString()}</div>}
                 </div>
               </div>
 
@@ -205,6 +211,7 @@ export default function CompanyJobsPage() {
                   <span>View Listing</span>
                 </Link>
 
+                <button disabled={Boolean(busyJob)} onClick={()=>cloneJob(job)} className="border rounded-xl px-3 py-2 text-xs">Clone as draft</button>
                 <button
                   onClick={() => setEditingJobId(job.id)}
                   className="px-3.5 py-2 bg-neutral-950 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
@@ -214,10 +221,10 @@ export default function CompanyJobsPage() {
                 </button>
 
                 <button
-                  onClick={() => handleToggleJobStatus(job.id, job.status)}
+                  disabled={Boolean(busyJob)} onClick={() => handleToggleJobStatus(job)}
                   className="px-3.5 py-2 bg-neutral-100 border border-neutral-300 rounded-xl text-xs font-bold text-neutral-800 hover:bg-neutral-200 transition-all cursor-pointer"
                 >
-                  {job.status === "ACTIVE" ? "Close Job" : "Reopen Job"}
+                  {job.status === "ACTIVE" ? "Close Job" : job.status === "DRAFT" ? "Review draft" : "Review & reopen"}
                 </button>
               </div>
             </div>

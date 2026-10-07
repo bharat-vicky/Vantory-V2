@@ -1,3 +1,4 @@
+import {activeJobWhere,jobAvailable,jobDisplayStatus} from "./availability";
 import { db } from "@/lib/db";
 import { ApplicationState } from "@/lib/application-state";
 import { discoveryPipeline, annualSalary } from "./discovery";
@@ -34,7 +35,7 @@ export async function getFilteredJobs(
   const records=await db.jobPosting.findMany({where:{id:{in:ids}}});
   const jobs=ids.map(id=>records.find(j=>j.id===id)!).filter(Boolean);
   const totalCount=result.count[0]?.total || 0;
-  const activeOpeningsCount=await db.jobPosting.count({where:{status:"ACTIVE",verificationStatus:"VERIFIED",OR:[{expiresAt:null},{expiresAt:{isSet:false}},{expiresAt:{gte:new Date()}}]}});
+  const activeOpeningsCount=await db.jobPosting.count({where:activeJobWhere()});
   // Fetch saved status & application status if userId is authenticated
   let savedJobIds = new Set<string>();
   let appliedJobIds = new Set<string>();
@@ -92,20 +93,21 @@ export async function getJobById(id: string, userId?: string) {
       : null,
   ]);
 
-  if (!job) return null;
+  if (!job || job.status==="DRAFT") return null;
 
   return {
     ...job,
+    displayStatus:jobDisplayStatus(job),
     isSaved: Boolean(savedRecord),
     hasApplied: Boolean(appRecord),
     existingApplicationId: appRecord?.id || null,
-    isAvailable:job.status==="ACTIVE" && job.verificationStatus==="VERIFIED" && (!job.expiresAt || job.expiresAt>=new Date()),
+    isAvailable:jobAvailable(job),
   };
 }
 
 export async function setSavedJob(userId:string,jobId:string,isSaved:boolean) {
  if(!objectId(jobId))throw new ApiError("Invalid job ID.");
- if(isSaved){const job=await db.jobPosting.findUnique({where:{id:jobId}});if(!job)throw new ApiError("Job not found.",404);await db.savedJob.upsert({where:{userId_jobId:{userId,jobId}},create:{userId,jobId},update:{}});}
+ if(isSaved){const job=await db.jobPosting.findUnique({where:{id:jobId}});if(!job || job.status==="DRAFT")throw new ApiError("Job not found.",404);await db.savedJob.upsert({where:{userId_jobId:{userId,jobId}},create:{userId,jobId},update:{}});}
  else await db.savedJob.deleteMany({where:{userId,jobId}});
  return {isSaved};
 }
@@ -126,14 +128,14 @@ export async function getSavedJobs(userId: string) {
   });
   const applicationByJob = new Map(applications.map(application => [application.jobId, application]));
 
-  return savedRecords.map((s) => ({
+  return savedRecords.filter(s=>s.job.status!=="DRAFT").map((s) => ({
     savedId: s.id,
     savedAt: s.createdAt.toISOString(),
     ...s.job,
     hasApplied: applicationByJob.has(s.jobId),
     existingApplicationId: applicationByJob.get(s.jobId)?.id || null,
     applicationStatus: applicationByJob.get(s.jobId)?.status || null,
-    isAvailable:s.job.status==="ACTIVE" && s.job.verificationStatus==="VERIFIED" && (!s.job.expiresAt || s.job.expiresAt>=new Date()),
+    isAvailable:jobAvailable(s.job),
   }));
 }
 
@@ -158,7 +160,7 @@ export async function applyToJob(
   if (job.verificationStatus !== "VERIFIED") {
     throw new ApiError("Cannot apply. Job posting is pending verification.");
   }
-  if (job.expiresAt && job.expiresAt < new Date()) {
+  if (job.expiresAt && job.expiresAt <= new Date()) {
     throw new ApiError("Cannot apply. Job posting has expired.");
   }
 
@@ -195,7 +197,7 @@ export async function applyToJob(
   // Capture the submission atomically with its audit entry. Later edits do not change it.
   try {
   const application=await db.$transaction(async tx=>{
-    const currentJob=await tx.jobPosting.findFirst({where:{id:jobId,status:"ACTIVE",verificationStatus:"VERIFIED",updatedAt:job.updatedAt}});
+    const currentJob=await tx.jobPosting.findFirst({where:{id:jobId,...activeJobWhere(),updatedAt:job.updatedAt}});
     const currentResume=await tx.resume.findFirst({where:{id:resumeId,userId,updatedAt:resume.updatedAt}});
     if(!currentJob || !currentResume)throw new ApiError("Job or resume changed. Review it and retry.",409);
     const created=await tx.jobApplication.create({data:{userId,jobId,resumeId,coverNote:coverNote?.trim().slice(0,2000) || null,status:ApplicationState.APPLIED,timelineJson:JSON.stringify(initialTimeline),resumeSnapshotJson:JSON.stringify({id:resume.id,title:resume.title,templateId:resume.templateId,contentJson:resume.contentJson,updatedAt:resume.updatedAt.toISOString()}),jobSnapshotJson:JSON.stringify(job),resumeRevision:resume.updatedAt},include:{job:true,resume:true}});

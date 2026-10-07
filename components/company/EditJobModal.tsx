@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, RefreshCw, AlertCircle, Building2, CheckCircle2 } from "lucide-react";
+import { localDeadline } from "@/lib/jobs/availability";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 
 export interface EditJobModalProps {
@@ -21,14 +22,6 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("Remote");
   const [workMode, setWorkMode] = useState("Remote");
@@ -45,18 +38,31 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
   const [responsibilities, setResponsibilities] = useState("");
   const [requirements, setRequirements] = useState("");
   const [preferredRequirements, setPreferredRequirements] = useState("");
+  const [eligibilityText,setEligibilityText]=useState("");
+  const [expectedUpdatedAt,setExpectedUpdatedAt]=useState("");
+  const [originalStatus,setOriginalStatus]=useState("ACTIVE");
   const [status, setStatus] = useState("ACTIVE");
 
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") !isSubmitting && onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, isSubmitting]);
 
   useEffect(() => {
     if (!isOpen || !jobId) return;
 
     async function loadJobDetails() {
       setIsLoadingDetails(true);
+      setExpectedUpdatedAt("");
       setError("");
       try {
         const res = await fetch(`/api/company/jobs/${jobId}`);
@@ -81,10 +87,14 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
             setRequirements(j.requirements || "");
             setPreferredRequirements(j.preferredRequirements || "");
             setStatus(j.status || "ACTIVE");
+            setOriginalStatus(j.status || "ACTIVE");
+            setExpectedUpdatedAt(j.updatedAt);
+            setExpiresAt(localDeadline(j.expiresAt));
+            setEligibilityText(j.eligibility ? JSON.stringify(j.eligibility) : "");
           } else {
             setError(json.error || "Failed to load job details.");
           }
-        }
+        } else {setError("Failed to load this opening. Close and reopen the editor to retry.");}
       } catch {
         setError("Error connecting to server to load job details.");
       } finally {
@@ -98,15 +108,17 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
   if (!isOpen || !jobId) return null;
 
   const handleSave = async (shouldRepublish: boolean) => {
+    if(isSubmitting || !expectedUpdatedAt) return;
+    let eligibility; try {eligibility=eligibilityText.trim()?JSON.parse(eligibilityText):null;} catch {setError("Eligibility must be valid JSON.");return;}
     if (!title.trim()) {
       setError("Job Title is required.");
       return;
     }
-    if (!description.trim()) {
+    if ((shouldRepublish ? "ACTIVE" : status) === "ACTIVE" && !description.trim()) {
       setError("Job Description is required.");
       return;
     }
-    if (!requirements.trim()) {
+    if ((shouldRepublish ? "ACTIVE" : status) === "ACTIVE" && !requirements.trim()) {
       setError("Job Requirements are required.");
       return;
     }
@@ -132,6 +144,8 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+          eligibility, expectedUpdatedAt,
           title,
           location,
           workMode,
@@ -159,16 +173,9 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
         throw new Error(json.error || "Failed to update job posting.");
       }
 
-      const msg = shouldRepublish
-        ? "🚀 Job Opening Successfully Republished! Published timestamp updated to NOW & listing promoted on Candidate Marketplace."
-        : "✅ Job Opening Successfully Updated! All modified requirements and salary parameters saved.";
-
-      setSuccessMsg(msg);
+      const msg = shouldRepublish ? "Opening published. Applications are accepted until its deadline." : "Opening saved.";
       if (onJobUpdated) onJobUpdated(msg);
-      setTimeout(() => {
-        onClose();
-        setSuccessMsg("");
-      }, 1000);
+      onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to update job.");
     } finally {
@@ -182,7 +189,7 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
     <div
       className="fixed inset-0 z-[99999] bg-neutral-950/85 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto selection:bg-neutral-900 selection:text-white"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div className="relative w-full max-w-3xl bg-white border border-neutral-200 rounded-3xl shadow-2xl overflow-hidden text-neutral-950 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
@@ -193,13 +200,13 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
               <Building2 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-neutral-950">Edit & Republish Opening</h2>
-              <p className="text-xs text-neutral-500 font-medium">Update job requirements or reset published date for marketplace ranking.</p>
+              <h2 className="text-base sm:text-lg font-black text-neutral-950">Edit opening</h2>
+              <p className="text-xs text-neutral-500 font-medium">Save changes, keep a draft, or publish when ready.</p>
             </div>
           </div>
 
           <button
-            onClick={onClose}
+            onClick={() => !isSubmitting && onClose()}
             className="p-2 rounded-xl text-neutral-400 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -229,14 +236,15 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
                 </div>
               )}
 
+<label className="block space-y-2">Application deadline (optional)<input aria-label="Application deadline" type="datetime-local" value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} className="block w-full border rounded-xl p-3"/><span className="block text-xs text-neutral-500">Your device time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Applications close automatically at this time. Leave blank for no expiry.</span></label>
+<label className="block">Structured eligibility (optional)<textarea aria-label="Structured eligibility" className="block w-full border rounded-xl p-3" value={eligibilityText} onChange={e=>setEligibilityText(e.target.value)}/><span>Leave blank to remove fixed eligibility rules.</span></label>
               {/* Title & Status */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="font-mono text-neutral-500 uppercase block font-semibold">Job Title *</label>
                   <input
                     type="text"
-                    required
-                    value={title}
+                        aria-label="Job title" value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Senior Fullstack Engineer"
                     className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 text-neutral-950 font-mono font-bold focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950"
@@ -250,6 +258,8 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
                     onChange={(e) => setStatus(e.target.value)}
                     className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 text-neutral-950 font-bold focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 cursor-pointer"
                   >
+                    {originalStatus === "DRAFT" && <option value="DRAFT">DRAFT (Private)</option>}
+                    <option value="PAUSED">PAUSED</option>
                     <option value="ACTIVE">ACTIVE (Published)</option>
                     <option value="CLOSED">CLOSED (Archived)</option>
                   </select>
@@ -262,8 +272,7 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
                   <label className="font-mono text-neutral-500 uppercase block font-semibold">Location *</label>
                   <input
                     type="text"
-                    required
-                    value={location}
+                        value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. Bengaluru, KA / Remote"
                     className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 text-neutral-950 font-medium"
@@ -376,9 +385,8 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
               <div className="space-y-1.5">
                 <label className="font-mono text-neutral-500 uppercase block font-semibold">Job Overview & Description *</label>
                 <textarea
-                  required
-                  rows={4}
-                  value={description}
+                    rows={4}
+                  aria-label="Job description" value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe the engineering role, team culture, and business impact..."
                   className="w-full bg-white border border-neutral-300 rounded-xl p-3 text-neutral-950 font-mono"
@@ -413,9 +421,8 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
               <div className="space-y-1.5">
                 <label className="font-mono text-neutral-500 uppercase block font-semibold">Mandatory Requirements *</label>
                 <textarea
-                  required
-                  rows={3}
-                  value={requirements}
+                    rows={3}
+                  aria-label="Job requirements" value={requirements}
                   onChange={(e) => setRequirements(e.target.value)}
                   placeholder="List mandatory qualifications and degree requirements..."
                   className="w-full bg-white border border-neutral-300 rounded-xl p-3 text-neutral-950 font-mono"
@@ -454,21 +461,22 @@ export function EditJobModal({ jobId, isOpen, onClose, onJobUpdated }: EditJobMo
         <div className="p-4 sm:p-6 border-t border-neutral-200 bg-neutral-50 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => !isSubmitting && onClose()}
             className="w-full sm:w-auto px-4 py-2.5 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition-all cursor-pointer"
           >
             Cancel
           </button>
 
           <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
+            <button type="button" disabled={isSubmitting || isLoadingDetails || !expectedUpdatedAt} onClick={()=>handleSave(false)} className="border rounded-xl p-3 disabled:opacity-40">Save changes</button>
             <button
               type="button"
-              disabled={isSubmitting || isLoadingDetails}
+              disabled={isSubmitting || isLoadingDetails || !expectedUpdatedAt}
               onClick={() => handleSave(true)}
               className="w-full sm:w-auto px-5 py-2.5 bg-neutral-950 text-white font-extrabold text-xs rounded-xl hover:bg-neutral-800 disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 text-white ${isSubmitting ? "animate-spin" : ""}`} />
-              <span>Republish & Set Active</span>
+              <span>{originalStatus === "DRAFT" ? "Publish draft" : "Republish opening"}</span>
             </button>
           </div>
         </div>

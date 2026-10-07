@@ -38,7 +38,7 @@ export async function GET() {
       }),
       db.savedJob.count({ where: { userId: user.id } }),
       db.jobPosting.findMany({
-        where: { status: "ACTIVE", verificationStatus: "VERIFIED",OR:[{expiresAt:null},{expiresAt:{isSet:false}},{expiresAt:{gte:new Date()}}] },
+        where: { status: "ACTIVE", verificationStatus: "VERIFIED",OR:[{expiresAt:null},{expiresAt:{isSet:false}},{expiresAt:{gt:new Date()}}] },
         orderBy: { createdAt: "desc" },
         take: 3,
         select: {

@@ -20,14 +20,6 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
   const [eligibilityText,setEligibilityText]=useState("");
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("Remote");
@@ -47,7 +39,16 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
   const [companyUrl, setCompanyUrl] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") !isSubmitting && onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, isSubmitting]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -70,17 +71,17 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (targetStatus: "DRAFT" | "ACTIVE") => {
+    if (isSubmitting) return;
     if (!title.trim()) {
       setError("Job Title is required.");
       return;
     }
-    if (!description.trim()) {
+    if (targetStatus === "ACTIVE" && !description.trim()) {
       setError("Job Description is required.");
       return;
     }
-    if (!requirements.trim()) {
+    if (targetStatus === "ACTIVE" && !requirements.trim()) {
       setError("Job Requirements are required.");
       return;
     }
@@ -107,6 +108,8 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eligibility,
+          status: targetStatus,
+          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
           title,
           location,
           workMode,
@@ -132,6 +135,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
         throw new Error(json.error || "Failed to create job posting.");
       }
 
+      setTitle(""); setDescription(""); setRequirements(""); setResponsibilities(""); setPreferredRequirements(""); setSkills(""); setEligibilityText(""); setExpiresAt(""); setSalaryMin(""); setSalaryMax(""); setExperienceMin(0); setExperienceMax(3); setLocation("Remote"); setWorkMode("Remote"); setType("Full-time");
       if (onJobCreated) onJobCreated();
       onClose();
     } catch (err: unknown) {
@@ -150,7 +154,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
       data-lenis-prevent-wheel="true"
       data-lenis-prevent-touch="true"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       {/* Centered Modal Card Wrapper */}
@@ -169,7 +173,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
             </div>
 
             <button
-              onClick={onClose}
+              onClick={() => !isSubmitting && onClose()}
               className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-950 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
@@ -177,7 +181,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
           </div>
 
           {/* Form Body */}
-          <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5 text-xs pb-12">
+          <form noValidate onSubmit={e => {e.preventDefault();handleSubmit("ACTIVE");}} className="p-5 sm:p-6 space-y-5 text-xs pb-12">
           {error && (
               <div className="p-3 bg-neutral-100 border border-neutral-300 rounded-xl text-neutral-900 flex items-center gap-2 font-mono">
                 <AlertCircle className="w-4 h-4 text-neutral-950 shrink-0" />
@@ -191,8 +195,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
                 <label className="font-mono text-neutral-500 uppercase block font-semibold">Job Title *</label>
                 <input
                   type="text"
-                  required
-                  value={title}
+                    aria-label="Job title" value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Senior Frontend Engineer"
                   className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 text-neutral-950 focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 font-medium"
@@ -203,8 +206,7 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
                 <label className="font-mono text-neutral-500 uppercase block font-semibold">Location *</label>
                 <input
                   type="text"
-                  required
-                  value={location}
+                    value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Remote, Bengaluru, Mumbai"
                   className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 text-neutral-950 focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 font-medium"
@@ -319,9 +321,8 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
             <div className="space-y-1.5">
               <label className="font-mono text-neutral-500 uppercase block font-semibold">Job Overview & Description *</label>
               <textarea
-                required
                 rows={4}
-                value={description}
+                aria-label="Job description" value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the engineering role, team culture, and business impact..."
                 className="w-full bg-white border border-neutral-300 rounded-xl p-3 text-neutral-950 font-mono focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950"
@@ -356,9 +357,8 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
             <div className="space-y-1.5">
               <label className="font-mono text-neutral-500 uppercase block font-semibold">Mandatory Requirements *</label>
               <textarea
-                required
                 rows={3}
-                value={requirements}
+                aria-label="Job requirements" value={requirements}
                 onChange={(e) => setRequirements(e.target.value)}
                 placeholder="List mandatory qualifications, tech stack experience, and degree requirements..."
                 className="w-full bg-white border border-neutral-300 rounded-xl p-3 text-neutral-950 font-mono focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950"
@@ -390,15 +390,17 @@ export function CreateJobModal({ isOpen, onClose, onJobCreated }: CreateJobModal
               </div>
             </div>
 
+<label className="block space-y-2">Application deadline (optional)<input aria-label="Application deadline" type="datetime-local" value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} className="block w-full border rounded-xl p-3"/><span className="block text-xs text-neutral-500">Your device time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Applications close automatically at this time. Leave blank for no expiry.</span></label>
           {/* Action Footer */}
           <div className="pt-4 border-t border-neutral-200 flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => !isSubmitting && onClose()}
               className="px-4 py-2.5 bg-white border border-neutral-300 text-neutral-950 font-semibold text-xs rounded-xl hover:bg-neutral-50 transition-all cursor-pointer"
             >
               Cancel
             </button>
+            <button type="button" disabled={isSubmitting} onClick={()=>handleSubmit("DRAFT")} className="border rounded-xl p-3 disabled:opacity-40">Save draft</button>
             <button
               type="submit"
               disabled={isSubmitting}

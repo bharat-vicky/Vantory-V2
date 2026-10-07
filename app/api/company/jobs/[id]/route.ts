@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/authorization";
 import { updateCompanyJob, deleteCompanyJob } from "@/lib/company/company-service";
 import { db } from "@/lib/db";
+import {requireCompany,companyBody} from "@/lib/company/route-helpers";
+import {ApiError,apiError,objectId} from "@/lib/api-error";
+import {jobDisplayStatus} from "@/lib/jobs/availability";
 
 export async function GET(
   request: Request,
@@ -9,10 +12,8 @@ export async function GET(
 ) {
   try {
     const { id: jobId } = await params;
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
-    }
+    const user = await requireCompany();
+    if(!objectId(jobId))throw new ApiError("Invalid job ID.");
 
     const job = await db.jobPosting.findUnique({
       where: { id: jobId },
@@ -27,7 +28,7 @@ export async function GET(
       },
     });
 
-    if (!job) {
+    if (!job || job.companyUserId!==user.id) {
       return NextResponse.json({ success: false, error: "Job posting not found" }, { status: 404 });
     }
 
@@ -66,7 +67,16 @@ export async function GET(
         requirements: job.requirements,
         preferredRequirements: job.preferredRequirements,
         skills: job.skills,
+        tags:job.tags,
+        experienceMin:job.experienceMin,
+        experienceMax:job.experienceMax,
+        salaryMin:job.salaryMin,
+        salaryMax:job.salaryMax,
+        salaryPeriod:job.salaryPeriod,
+        eligibility:job.eligibilityJson?JSON.parse(job.eligibilityJson):null,
         status: job.status,
+        displayStatus:jobDisplayStatus(job),
+        updatedAt:job.updatedAt.toISOString(),
         verificationStatus: job.verificationStatus,
         hiringContact: job.hiringContact,
         postedAt: job.postedAt.toISOString(),
@@ -79,10 +89,9 @@ export async function GET(
         underReviewCount,
         offeredCount,
       },
-    });
+    },{headers:{"Cache-Control":"private, no-store"}});
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Failed to load job details.";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    return apiError(error);
   }
 }
 
@@ -92,17 +101,12 @@ export async function PATCH(
 ) {
   try {
     const { id: jobId } = await params;
-    const user = await getCurrentUser();
-    if (!user || (user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN")) {
-      return NextResponse.json({ success: false, error: "Unauthorized. Company Admin role required." }, { status: 403 });
-    }
-
-    const body = await request.json();
+    const user = await requireCompany();
+    const body = await companyBody(request);
     const updated = await updateCompanyJob(user.id, jobId, body);
-    return NextResponse.json({ success: true, job: updated });
+    return NextResponse.json({ success: true, job: updated },{headers:{"Cache-Control":"private, no-store"}});
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Failed to update job posting.";
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+    return apiError(error);
   }
 }
 

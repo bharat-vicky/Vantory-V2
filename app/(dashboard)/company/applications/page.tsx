@@ -21,6 +21,7 @@ import { InterviewScheduler } from "@/components/company/InterviewScheduler";
 import {ApplicantReviewTools} from "@/components/company/ApplicantReviewTools";
 import type {ApplicantEvaluation} from "@/lib/company/applicant-tools-types";
 import {filterPipeline,type PipelineFilters} from "@/lib/company/pipeline-filters";
+import {SavedApplicantFilters} from "@/components/company/SavedApplicantFilters";
 import type { InterviewSchedule } from "@/lib/jobs/interview-schedule";
 import { ResumeData } from "@/lib/resume/types";
 import { APPLICATION_TRANSITIONS } from "@/lib/application-state";
@@ -346,6 +347,7 @@ export default function CompanyApplicationsPage() {
         <p className="w-full text-neutral-600">Dates use your device time zone. {filteredApplications.length} matching applications.</p>
         {invalidDates && <p role="alert">The start date must be on or before the end date.</p>}
       </div>
+      <SavedApplicantFilters filters={{search:appSearchQuery,jobId:appJobFilter,status:appStatusFilter,from:dateFrom,to:dateTo,sort}} onApply={f=>{setAppSearchQuery(f.search);setAppJobFilter(f.jobId);setAppStatusFilter(f.status);setDateFrom(f.from);setDateTo(f.to);setSort(f.sort);setPage(1);}}/>
       {loadError && <p role="alert" className="border rounded p-4">{loadError}</p>}
 
       {/* Applications List */}

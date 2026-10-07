@@ -6,7 +6,7 @@ export function discoveryPipeline(p:JobFilterParams,profileTerms:string[]=[],now
  const page=Number(p.page ?? 1),limit=Number(p.limit ?? 10);
  if(!Number.isInteger(page) || page<1 || page>10000 || !Number.isInteger(limit) || limit<1 || limit>50)throw new ApiError("Invalid pagination.");
  const valid=["recent","relevance","salary","experience"];if(p.sortBy && !valid.includes(p.sortBy))throw new ApiError("Invalid sorting.");
- const active={status:"ACTIVE",verificationStatus:"VERIFIED",$or:[{expiresAt:null},{expiresAt:{$gte:{$date:now.toISOString()}}}]};
+ const active={status:"ACTIVE",verificationStatus:"VERIFIED",$or:[{expiresAt:null},{expiresAt:{$gt:{$date:now.toISOString()}}}]};
  const filters:Record<string,unknown>[]=[active];
  const regex=(value:string)=>({$regex:escaped(value.slice(0,150)),$options:"i"});
  if(p.query?.trim())filters.push({$or:["title","company","skills","location","description"].map(k=>({[k]:regex(p.query!.trim())}))});

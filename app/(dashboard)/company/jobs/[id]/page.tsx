@@ -40,6 +40,9 @@ interface CompanyJobDetailData {
   preferredRequirements?: string;
   skills: string;
   status: string;
+  displayStatus: string;
+  expiresAt: string|null;
+  updatedAt: string;
   verificationStatus: string;
   hiringContact?: string;
   postedAt: string;
@@ -102,7 +105,8 @@ export default function CompanyJobDetailPage({ params }: { params: Promise<{ id:
   };
 
   const handleToggleJobStatus = async () => {
-    if (!job) return;
+    if (!job || isUpdatingStatus) return;
+    if(job.status!=="ACTIVE"){setIsEditModalOpen(true);return;}
     const nextStatus = job.status === "ACTIVE" ? "CLOSED" : "ACTIVE";
     setIsUpdatingStatus(true);
 
@@ -110,17 +114,14 @@ export default function CompanyJobDetailPage({ params }: { params: Promise<{ id:
       const res = await fetch(`/api/company/jobs/${job.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: nextStatus, expectedUpdatedAt: job.updatedAt }),
       });
 
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          setJob((prev) => (prev ? { ...prev, status: nextStatus } : null));
-        }
-      }
-    } catch {
-      // Handle silently
+      const json=await res.json();
+      if(!res.ok || !json.success)throw new Error(json.error || "Unable to update opening.");
+      await loadJobDetails();
+    } catch(e) {
+      setTopBannerMsg(e instanceof Error?e.message:"Unable to update opening.");
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -213,7 +214,8 @@ export default function CompanyJobDetailPage({ params }: { params: Promise<{ id:
                   : "bg-neutral-100 text-neutral-500 border border-neutral-200"
               }`}
             >
-              {job.status}
+              {job.displayStatus}
+              {job.expiresAt && <span className="block text-xs">Deadline: {new Date(job.expiresAt).toLocaleString()}</span>}
             </span>
 
             {job.verificationStatus === "VERIFIED" && (
@@ -268,7 +270,7 @@ export default function CompanyJobDetailPage({ params }: { params: Promise<{ id:
           </button>
 
           <Link
-            href={`/jobs/${job.id}`}
+            href={job.status === "DRAFT" ? `/company/jobs/${job.id}` : `/jobs/${job.id}`}
             target="_blank"
             className="px-4 py-2.5 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-950 hover:bg-neutral-50 transition-all flex items-center gap-2 shadow-xs"
           >
@@ -363,7 +365,7 @@ export default function CompanyJobDetailPage({ params }: { params: Promise<{ id:
             </div>
           </div>
           <div className="text-xl font-bold text-neutral-950 font-mono">
-            {job.status}
+            {job.displayStatus}
           </div>
           <p className="text-[11px] font-mono text-neutral-400">
             Posted on {new Date(job.postedAt).toLocaleDateString()}

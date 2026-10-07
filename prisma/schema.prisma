@@ -91,6 +91,7 @@ model CompanyProfile {
   location           String?  @default("Remote")
   establishedYear    Int?     @default(2024)
   companySize        String?  @default("11-50 Employees")
+  savedApplicantFiltersJson String?
   isOnboarded        Boolean  @default(false)
   verificationStatus String   @default("PENDING")
   createdAt          DateTime @default(now())

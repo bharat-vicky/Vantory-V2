@@ -1,9 +1,10 @@
-import { Eligibility,validateEligibility } from "@/lib/jobs/eligibility";
+import type { Eligibility } from "@/lib/jobs/eligibility";
 import { readApplicationSnapshot } from "@/lib/jobs/snapshots";
 import { applicationInterview } from "@/lib/jobs/interview-schedule";
 import { db } from "@/lib/db";
 import { ApplicationState, APPLICATION_TRANSITIONS, isApplicationState } from "@/lib/application-state";
 import { ApiError } from "@/lib/api-error";
+import {jobDisplayStatus,jobAvailable} from "@/lib/jobs/availability";
 import {readEvaluation} from "@/lib/company/applicant-tools";
 
 export interface CreateCompanyJobInput {
@@ -27,12 +28,14 @@ export interface CreateCompanyJobInput {
   skills?: string;
   tags?: string;
   companyUrl?: string;
-  expiresAt?: string;
+  expiresAt?: string | null;
+  status?: string;
 }
 
 export interface UpdateCompanyJobInput extends Partial<CreateCompanyJobInput> {
   status?: string;
   republish?: boolean;
+  expectedUpdatedAt?: string;
 }
 
 /**
@@ -157,12 +160,12 @@ export async function updateCompanyProfile(
 export async function getCompanyDashboardStats(companyUserId: string) {
   const companyJobs = await db.jobPosting.findMany({
     where: { companyUserId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, expiresAt:true, verificationStatus:true },
   });
 
   const jobIds = companyJobs.map((j) => j.id);
 
-  const activeJobs = companyJobs.filter((j) => j.status === "ACTIVE").length;
+  const activeJobs = companyJobs.filter((j) => jobAvailable(j)).length;
   const totalJobs = companyJobs.length;
 
   let totalApplications = 0;
@@ -221,6 +224,8 @@ export async function getCompanyJobs(companyUserId: string) {
     experience: job.experience,
     salary: job.salary,
     status: job.status,
+    displayStatus:jobDisplayStatus(job),
+    updatedAt:job.updatedAt.toISOString(),
     verificationStatus: job.verificationStatus,
     postedAt: job.postedAt.toISOString(),
     expiresAt: job.expiresAt ? job.expiresAt.toISOString() : null,
@@ -231,193 +236,7 @@ export async function getCompanyJobs(companyUserId: string) {
 /**
  * Create a new Job Posting server-side bound to Company
  */
-export async function createCompanyJob(
-  companyUserId: string,
-  input: CreateCompanyJobInput,
-) {
-  // Validate Server-Side Ownership
-  const { profile } = await getOrCreateCompanyProfile(companyUserId);
-
-  // Validate Input
-  if (!input.title || !input.title.trim()) {
-    throw new Error("Job Title is required.");
-  }
-  if (!input.description || !input.description.trim()) {
-    throw new Error("Job Description is required.");
-  }
-  if (!input.requirements || !input.requirements.trim()) {
-    throw new Error("Job Requirements are required.");
-  }
-  if (
-    typeof input.experienceMin === "number" &&
-    typeof input.experienceMax === "number" &&
-    input.experienceMin > input.experienceMax
-  ) {
-    throw new Error("Minimum experience cannot exceed maximum experience.");
-  }
-  if (
-    typeof input.salaryMin === "number" &&
-    typeof input.salaryMax === "number" &&
-    input.salaryMin > input.salaryMax
-  ) {
-    throw new Error("Minimum salary cannot exceed maximum salary.");
-  }
-
-  const expMin = input.experienceMin ?? 0;
-  const expMax = input.experienceMax ?? 2;
-  const expString = input.experience || `${expMin}-${expMax} Years`;
-
-  let salaryString = input.salary || undefined;
-  if (!salaryString && (input.salaryMin || input.salaryMax)) {
-    const periodStr =
-      input.salaryPeriod === "month"
-        ? "mo"
-        : input.salaryPeriod === "hour"
-          ? "hr"
-          : "yr";
-    salaryString = `₹${input.salaryMin?.toLocaleString("en-IN") || "0"} - ₹${input.salaryMax?.toLocaleString("en-IN") || "0"}/${periodStr}`;
-  }
-
-  const newJob = await db.jobPosting.create({
-    data: {
-      title: input.title.trim(),
-      company: profile.companyName,
-      companyLogo: profile.logo,
-      companyUrl: input.companyUrl?.trim() || profile.website || null,
-      companyUserId: companyUserId,
-      location: input.location?.trim() || profile.location || "Remote",
-      workMode: input.workMode || "Remote",
-      type: input.type || "Full-time",
-      experienceMin: expMin,
-      experienceMax: expMax,
-      experience: expString,
-      salaryMin: input.salaryMin || null,
-      salaryMax: input.salaryMax || null,
-      salaryPeriod: input.salaryPeriod || "year",
-      salary: salaryString || "Competitive",
-      description: input.description.trim(),
-      aboutCompany: input.aboutCompany?.trim() || profile.description || null,
-      responsibilities: input.responsibilities?.trim() || null,
-      requirements: input.requirements.trim(),
-      eligibilityJson:input.eligibility===undefined?undefined:JSON.stringify(validateEligibility(input.eligibility)),
-      preferredRequirements: input.preferredRequirements?.trim() || null,
-      skills: input.skills?.trim() || "",
-      tags: input.tags?.trim() || "",
-      status: "ACTIVE",
-      verificationStatus: profile.verificationStatus || "PENDING",
-      hiringContact: profile.companyName,
-      postedAt: new Date(),
-      expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
-    },
-  });
-
-  await db.activityLog.create({
-    data: {
-      userId: companyUserId,
-      type: "COMPANY_JOB_CREATED",
-      title: `Created Job: ${newJob.title}`,
-      detail: `Created job posting ID ${newJob.id}`,
-    },
-  });
-
-  return newJob;
-}
-
-/**
- * Update an existing Job Posting owned by Company
- */
-export async function updateCompanyJob(
-  companyUserId: string,
-  jobId: string,
-  input: UpdateCompanyJobInput,
-) {
-  const existingJob = await db.jobPosting.findUnique({
-    where: { id: jobId },
-  });
-
-  if (!existingJob) throw new Error("Job posting not found.");
-  if (existingJob.companyUserId !== companyUserId) {
-    throw new Error("Unauthorized. You do not own this job posting.");
-  }
-
-  const expMin =
-    typeof input.experienceMin === "number"
-      ? input.experienceMin
-      : existingJob.experienceMin;
-  const expMax =
-    typeof input.experienceMax === "number"
-      ? input.experienceMax
-      : existingJob.experienceMax;
-  const expString = input.experience || `${expMin}-${expMax} Years`;
-
-  let salaryString = input.salary || undefined;
-  if (
-    !salaryString &&
-    (typeof input.salaryMin === "number" || typeof input.salaryMax === "number")
-  ) {
-    const periodStr =
-      (input.salaryPeriod || existingJob.salaryPeriod) === "month"
-        ? "mo"
-        : (input.salaryPeriod || existingJob.salaryPeriod) === "hour"
-          ? "hr"
-          : "yr";
-    const sMin = input.salaryMin ?? existingJob.salaryMin ?? 0;
-    const sMax = input.salaryMax ?? existingJob.salaryMax ?? 0;
-    salaryString = `₹${sMin.toLocaleString("en-IN")} - ₹${sMax.toLocaleString("en-IN")}/${periodStr}`;
-  }
-
-  const newStatus = input.republish
-    ? "ACTIVE"
-    : input.status || existingJob.status;
-  if(!["ACTIVE","PAUSED","CLOSED","DRAFT"].includes(newStatus))throw new ApiError("Unsupported job status.");
-  const updateData: Record<string, unknown> = {
-    title: input.title?.trim() || existingJob.title,
-    location: input.location?.trim() || existingJob.location,
-    workMode: input.workMode || existingJob.workMode,
-    type: input.type || existingJob.type,
-    experienceMin: expMin,
-    experienceMax: expMax,
-    experience: expString,
-    salaryMin: input.salaryMin ?? existingJob.salaryMin,
-    salaryMax: input.salaryMax ?? existingJob.salaryMax,
-    salaryPeriod: input.salaryPeriod || existingJob.salaryPeriod,
-    salary: salaryString || existingJob.salary,
-    description: input.description?.trim() || existingJob.description,
-    aboutCompany: input.aboutCompany?.trim() ?? existingJob.aboutCompany,
-    companyUrl:
-      input.companyUrl !== undefined
-        ? input.companyUrl?.trim() || null
-        : existingJob.companyUrl,
-    responsibilities:
-      input.responsibilities?.trim() ?? existingJob.responsibilities,
-    requirements: input.requirements?.trim() || existingJob.requirements,
-    preferredRequirements:
-      input.preferredRequirements?.trim() ?? existingJob.preferredRequirements,
-    skills: input.skills?.trim() ?? existingJob.skills,
-    status: newStatus,
-    eligibilityJson:input.eligibility===undefined ? existingJob.eligibilityJson:JSON.stringify(validateEligibility(input.eligibility)),
-  };
-
-  if (input.republish) {
-    updateData.postedAt = new Date();
-  }
-
-  const updatedJob = await db.jobPosting.update({
-    where: { id: jobId },
-    data: updateData,
-  });
-
-  await db.activityLog.create({
-    data: {
-      userId: companyUserId,
-      type: "COMPANY_JOB_UPDATED",
-      title: `Updated Job: ${updatedJob.title}`,
-      detail: `Status: ${updatedJob.status}`,
-    },
-  });
-
-  return updatedJob;
-}
+export {createCompanyJob,updateCompanyJob,cloneCompanyJob} from "./job-postings";
 
 /**
  * Delete / Close a Job Posting owned by Company
