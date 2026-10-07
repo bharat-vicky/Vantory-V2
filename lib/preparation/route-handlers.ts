@@ -12,6 +12,11 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { defaultCareer,parseJson } from "@/lib/candidate/profile";
 import {ROLE_PLANS,readPlan,validatePlan,roleProgress} from "./role-plans";
 
+function practiceJson(raw:string|null|undefined){
+ if(!raw)return null;
+ try{const value=JSON.parse(raw);return value && typeof value==="object" && !Array.isArray(value) && Object.keys(value).length?value:null;}catch{return null;}
+}
+
 export function practiceInputHash(b:{topicId:string;action:string;quizSet?:string;answers?:unknown;code?:string}){return createHash("sha256").update(JSON.stringify({topicId:b.topicId,action:b.action,quizSet:b.action==="quiz"?b.quizSet:null,answers:b.action==="quiz"?b.answers:null,code:b.action==="execute"?b.code:null})).digest("hex");}
 
 export async function GET(){try{
@@ -19,7 +24,7 @@ export async function GET(){try{
   const [p,tasks,attempts]=await Promise.all([db.profile.findUnique({where:{userId:u.id}}),db.preparationTask.findMany({where:{userId:u.id}}),db.preparationAttempt.findMany({where:{userId:u.id},orderBy:{createdAt:"desc"},take:100})]);
   const career=parseJson(p?.careerJson,defaultCareer);
   const plan=readPlan(p?.preparationPlanJson,career.track);
-  return NextResponse.json({success:true,draftScope:u.id,track:career.track,plan,roles:ROLE_PLANS,progress:roleProgress(plan,TOPICS,tasks),topics:TOPICS.map(t=>{const n=tasks.find(task=>task.topicId===t.id)?.quizAttempts || 0;return {...publicTopic({...t,quiz:quizForAttempt(t,n)}),quizSet:quizSet(n)};}),tasks:tasks.map(t=>({...t,evidence:parseJson(t.evidenceJson,null),source:parseJson(t.sourceJson,null)})),attempts:attempts.map(a=>({...a,result:parseJson(a.resultJson,null)})),exercises:EXERCISES,executionAvailable:executionConfiguration().available},{headers:{"Cache-Control":"private, no-store"}});
+  return NextResponse.json({success:true,draftScope:u.id,track:career.track,plan,roles:ROLE_PLANS,progress:roleProgress(plan,TOPICS,tasks),topics:TOPICS.map(t=>{const n=tasks.find(task=>task.topicId===t.id)?.quizAttempts || 0;return {...publicTopic({...t,quiz:quizForAttempt(t,n)}),quizSet:quizSet(n)};}),tasks:tasks.map(t=>({...t,evidence:practiceJson(t.evidenceJson),source:practiceJson(t.sourceJson)})),attempts:attempts.map(a=>({...a,result:practiceJson(a.resultJson)})),exercises:EXERCISES,executionAvailable:executionConfiguration().available},{headers:{"Cache-Control":"private, no-store"}});
 }catch(e){return apiError(e);}}
 
 export async function PATCH(request:Request){try{

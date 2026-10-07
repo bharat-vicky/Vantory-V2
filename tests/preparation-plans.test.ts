@@ -99,6 +99,7 @@ test("Preparation GET reads only owned practice, returns saved plan and excludes
  try{await authenticated("CANDIDATE",async()=>{
   const r=await route.GET();assert.equal(r.status,200);assert.equal(r.headers.get("Cache-Control"),"private, no-store");
   const j=await r.json();assert.equal(j.draftScope,userId);assert.equal(j.plan.roleId,"data-engineer");assert.equal(j.progress.checked,1);
+  assert.equal(j.tasks[0].source,null);assert.equal(j.tasks[0].evidence,null);
   assert.equal(j.topics.length,18);assert.ok(j.topics.every((t:any)=>t.quiz.every((q:any)=>!("answer" in q))));
   assert.ok(Object.values(j.exercises).every((e:any)=>!("expected" in e) && !("setup" in e)));
  });}finally{restores.reverse().forEach(r=>r());}
