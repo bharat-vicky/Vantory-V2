@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Mic,
   Square,
@@ -69,10 +69,10 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
   const silenceTimer = useRef(new AnswerPause());
   const submitTurn = useRef<()=>void>(()=>{});
   const listenTurn = useRef<()=>void>(()=>{});
-  const clearSilence = () => silenceTimer.current.clear();
-  const pauseConversation = () => {
+  const clearSilence = useCallback(() => silenceTimer.current.clear(), []);
+  const pauseConversation = useCallback(() => {
     handsFreeRef.current=false;setHandsFree(false);clearSilence();
-  };
+  }, [clearSilence]);
   const [callMode, setCallMode] = useState(true);
   const answerRef = useRef("");
   const submittedRef = useRef(false);
@@ -81,7 +81,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
   const recognitionFailed = useRef(false);
   const interimRef = useRef("");
   const stopResolve = useRef<(() => void) | null>(null);
-  const setAnswer = (text:string) => { answerRef.current=text;setCandidateAnswer(text); };
+  const setAnswer = useCallback((text:string) => { answerRef.current=text;setCandidateAnswer(text); }, []);
   const speakRef = useRef(voice.speak);
   speakRef.current=voice.speak;
 
@@ -107,13 +107,13 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
 
   useEffect(() => {
     try {if (sessionId) setAnswer(localStorage.getItem(`interview-draft:${sessionId}:${initialQuestion.id}`) || "");} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
-  }, [sessionId, initialQuestion.id]);
+  }, [sessionId, initialQuestion.id, setAnswer]);
   useEffect(() => {
     try {if (sessionId) localStorage.setItem(`interview-draft:${sessionId}:${currentQuestion.id}`, candidateAnswer);} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
   }, [sessionId, currentQuestion.id, candidateAnswer]);
   useEffect(() => {
     if (durationMinutes && elapsedSeconds >= durationMinutes*60 && !isSubmitting && !timedEndRequested.current) {timedEndRequested.current=true;pauseConversation();stopAudio();(recognitionRef.current as ISpeechRecognition | null)?.stop();onEndInterview();}
-  }, [elapsedSeconds, durationMinutes, isSubmitting, onEndInterview]);
+  }, [elapsedSeconds, durationMinutes, isSubmitting, onEndInterview, pauseConversation, stopAudio]);
 
   // Playback starts only after an explicit user gesture; stop before each turn.
   useEffect(() => {
@@ -192,13 +192,13 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
         setIsSpeechSupported(false);
       }
     }
-  }, []);
+  }, [clearSilence, pauseConversation, setAnswer]);
 
   useEffect(() => () => {
     handsFreeRef.current=false;clearSilence();
     submittedRef.current=true;
     (recognitionRef.current as ISpeechRecognition | null)?.stop();
-  }, []);
+  }, [clearSilence]);
 
   // Voice recording timer
   useEffect(() => {
@@ -299,12 +299,12 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
   submitTurn.current=()=>{void handleSubmit();};
   useEffect(()=>{
     if(voice.error && handsFreeRef.current) pauseConversation();
-  },[voice.error]);
+  },[voice.error,pauseConversation]);
   useEffect(()=>{
     const hidden=()=>{if(document.hidden){pauseConversation();stopAudio();(recognitionRef.current as ISpeechRecognition | null)?.stop();}};
     document.addEventListener("visibilitychange",hidden);
     return ()=>document.removeEventListener("visibilitychange",hidden);
-  },[stopAudio]);
+  },[stopAudio,pauseConversation]);
   const startConversation = () => {
     if(isSubmitting || recordingRef.current) return;
     handsFreeRef.current=true;setHandsFree(true);setAutoPlay(false);setSpeechError("");
