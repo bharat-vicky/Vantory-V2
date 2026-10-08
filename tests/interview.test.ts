@@ -77,3 +77,16 @@ test("Interview requests enforce string outlines and bounded score dimensions at
 test("Empty and historical reports have no fabricated scores or progression",async()=>{const p=await buildInterviewContext(config);const empty=ReportGenerator.generateFinalReport({sessionId:"s",profile:p,evaluatedQuestions:[]});assert.equal(empty.overallScore,null);assert.equal(empty.categoryBreakdown.technicalScore,null);assert.equal(empty.historyProgression.previousAverage,null);assert.deepEqual(empty.strongestAreas,[]);const legacy=ReportGenerator.generateFinalReport({sessionId:"s",profile:p,evaluatedQuestions:[{id:"q",sessionId:"s",questionIndex:1,category:"Technical",questionText:"SQL?",candidateAnswerText:"SQL",evaluation:{...evaluation,assessmentVersion:undefined},isFollowUp:false}]});assert.equal(legacy.overallScore,null);});
 test("Report leaves untested areas and unmatched skills unassessed",async()=>{const p=await buildInterviewContext(config);const report=ReportGenerator.generateFinalReport({sessionId:"s",profile:p,evaluatedQuestions:[{id:"q",sessionId:"s",questionIndex:1,category:"Technical Fundamentals",questionText:"Explain SQL LEFT JOIN",candidateAnswerText:"LEFT JOIN removes unmatched rows",evaluation:{...evaluation,overallScore:5},isFollowUp:false}],previousAverage:70});assert.equal(report.categoryBreakdown.projectKnowledgeScore,null);assert.equal(report.roleReadinessBreakdown.Excel,null);assert.equal(report.overallScore,5);assert.equal(report.historyProgression.improvement,-65);});
 test("Interview ownership and idempotent retries do not create extra questions",async()=>{const id="111111111111111111111111",qid="222222222222222222222222";let writes=0;const restore=stubMethod(db.interviewSession,"findFirst",async ({where}:any)=>where.userId==="owner"?{id,userId:"owner",status:"ACTIVE",currentQuestionIndex:1,sessionStateJson:"{}",questions:[{id:qid,questionIndex:1,candidateAnswerText:"answer",responseJson:JSON.stringify({success:true,nextQuestion:{id:"next"}})}]}:null);try{await assert.rejects(()=>resumeSession("foreign",id),/not found/);const start=await startSession("owner",id);assert.equal(start.success,true);const response=await answerSession("owner",id,{questionId:qid,candidateAnswerText:"answer"});assert.equal(response.nextQuestion.id,"next");await assert.rejects(()=>answerSession("owner",id,{questionId:qid,candidateAnswerText:"changed"}),/already answered/);assert.equal(writes,0);}finally{restore();}});
+
+
+test("Spoken answer pause resets for new words and rejects cancelled or repeated callbacks", async()=>{
+ const {AnswerPause}=await import("../lib/interview/answer-pause");
+ const pending:Array<()=>void>=[];const delays:number[]=[];let sent=0;
+ const pause=new AnswerPause(((fn:()=>void,ms:number)=>{pending.push(fn);delays.push(ms);return pending.length as unknown as ReturnType<typeof setTimeout>;}) as typeof setTimeout, (()=>{}) as typeof clearTimeout);
+ pause.heard("",6000,()=>sent++);assert.equal(pending.length,0);
+ pause.heard("my first words",6000,()=>sent++);
+ pause.heard("more words",10000,()=>sent++);
+ pending[0]();assert.equal(sent,0);assert.deepEqual(delays,[6000,10000]);
+ pending[1]();pending[1]();assert.equal(sent,1);
+ pause.heard("draft",4000,()=>sent++);pause.clear();pending[2]();assert.equal(sent,1);
+});

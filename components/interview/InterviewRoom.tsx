@@ -16,6 +16,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { useInterviewVoice } from "./useInterviewVoice";
+import { AnswerPause } from "@/lib/interview/answer-pause";
 import { PASSED_ANSWER } from "@/lib/interview/turns";
 import { EvaluatedQuestion } from "@/lib/interview/types";
 
@@ -59,10 +60,26 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
   const stopAudio = voice.stop;
   const [autoPlay, setAutoPlay] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [handsFree, setHandsFree] = useState(false);
+  const handsFreeRef = useRef(false);
+  const [pauseSeconds, setPauseSeconds] = useState(6);
+  const pauseRef = useRef(6);
+  const [speechLanguage, setSpeechLanguage] = useState("en-IN");
+  const languageRef = useRef("en-IN");
+  const silenceTimer = useRef(new AnswerPause());
+  const submitTurn = useRef<()=>void>(()=>{});
+  const listenTurn = useRef<()=>void>(()=>{});
+  const clearSilence = () => silenceTimer.current.clear();
+  const pauseConversation = () => {
+    handsFreeRef.current=false;setHandsFree(false);clearSilence();
+  };
   const [callMode, setCallMode] = useState(true);
   const answerRef = useRef("");
   const submittedRef = useRef(false);
   const recordingRef = useRef(false);
+  const submittingRef = useRef(false);
+  const recognitionFailed = useRef(false);
+  const interimRef = useRef("");
   const stopResolve = useRef<(() => void) | null>(null);
   const setAnswer = (text:string) => { answerRef.current=text;setCandidateAnswer(text); };
   const speakRef = useRef(voice.speak);
@@ -95,13 +112,14 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
     try {if (sessionId) localStorage.setItem(`interview-draft:${sessionId}:${currentQuestion.id}`, candidateAnswer);} catch {setSpeechError("Local draft storage is unavailable. Keep this tab open until your answer is submitted.");}
   }, [sessionId, currentQuestion.id, candidateAnswer]);
   useEffect(() => {
-    if (durationMinutes && elapsedSeconds >= durationMinutes*60 && !isSubmitting && !timedEndRequested.current) {timedEndRequested.current=true;onEndInterview();}
+    if (durationMinutes && elapsedSeconds >= durationMinutes*60 && !isSubmitting && !timedEndRequested.current) {timedEndRequested.current=true;pauseConversation();stopAudio();(recognitionRef.current as ISpeechRecognition | null)?.stop();onEndInterview();}
   }, [elapsedSeconds, durationMinutes, isSubmitting, onEndInterview]);
 
   // Playback starts only after an explicit user gesture; stop before each turn.
   useEffect(() => {
     stopAudio();
-    if (autoPlay) void speakRef.current(currentQuestion);
+    if (handsFreeRef.current) void speakRef.current(currentQuestion,()=>{if(handsFreeRef.current)listenTurn.current();});
+    else if (autoPlay) void speakRef.current(currentQuestion);
   }, [currentQuestion, autoPlay, stopAudio]);
 
   // Web Speech API Initialization for Voice Recording
@@ -115,7 +133,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
         const recognition: ISpeechRecognition = new SpeechRecognitionCtor();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = "en-US";
+        recognition.lang = languageRef.current;
 
         recognition.onresult = (event: { resultIndex: number; results: Array<Array<{ transcript: string }> & {isFinal:boolean}> }) => {
           if (submittedRef.current) return;
@@ -129,11 +147,21 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
             answerRef.current = `${answerRef.current} ${transcript}`.trim();
             setCandidateAnswer(answerRef.current);
           }
+          interimRef.current=interim;
           setInterimTranscript(interim);
+          clearSilence();
+          // Only recognized speech schedules submission. Silence alone never sends an empty answer.
+          if(handsFreeRef.current && (transcript.trim() || interim.trim())) {
+            silenceTimer.current.heard(transcript+interim,pauseRef.current*1000,()=>{
+              if(handsFreeRef.current && recordingRef.current) submitTurn.current();
+            });
+          }
 
         };
 
         recognition.onerror = (err: { error?: string }) => {
+          recognitionFailed.current=true;
+          pauseConversation();
           setSpeechError(err.error === "not-allowed" ? "Microphone permission was denied. Allow it in your browser, or type your answer." : err.error === "no-speech" ? "No speech was detected. Try again, or type your answer." : "Voice recognition paused or unavailable. Your transcript is preserved; you can type your answer.");
           recordingRef.current=false;
           stopResolve.current?.();stopResolve.current=null;
@@ -142,6 +170,17 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
         };
 
         recognition.onend = () => {
+          if(interimRef.current.trim()) {
+            setAnswer(`${answerRef.current} ${interimRef.current}`.trim());
+            interimRef.current="";recognitionFailed.current=true;
+            pauseConversation();
+            setSpeechError("Some words were not finalized. Your draft is preserved; review it and submit manually.");
+          }
+          // An unexpected browser disconnect preserves the draft and requires explicit resume.
+          if(handsFreeRef.current && !stopResolve.current) {
+            pauseConversation();
+            setSpeechError("Microphone connection ended. Your draft is preserved. Resume hands-free or submit it yourself.");
+          }
           recordingRef.current=false;
           stopResolve.current?.();stopResolve.current=null;
           setInterimTranscript("");
@@ -156,8 +195,9 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
   }, []);
 
   useEffect(() => () => {
-    (recognitionRef.current as ISpeechRecognition | null)?.stop();
+    handsFreeRef.current=false;clearSilence();
     submittedRef.current=true;
+    (recognitionRef.current as ISpeechRecognition | null)?.stop();
   }, []);
 
   // Voice recording timer
@@ -177,22 +217,28 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
     if (isSubmitting || recordingRef.current) return;
     voice.stop();
     setSpeechError("");
-    const rec = recognitionRef.current as { start: () => void } | null;
+    const rec = recognitionRef.current as ISpeechRecognition | null;
     if (rec) {
       try {
-        submittedRef.current=false;
+        submittedRef.current=false;recognitionFailed.current=false;interimRef.current="";
+        rec.lang=languageRef.current;
         rec.start();
         recordingRef.current=true;
         setIsRecording(true);
       } catch {
+        pauseConversation();
         setSpeechError("Microphone could not start. Check browser permission or type your answer.");
       }
     } else {
+      pauseConversation();
       setSpeechError("Speech recognition not supported in this browser. Please type your answer below.");
     }
   };
 
+  listenTurn.current=startVoiceRecording;
+
   const stopVoiceRecording = () => {
+    clearSilence();
     const rec = recognitionRef.current as { stop: () => void } | null;
     if (rec) {
       try {
@@ -205,18 +251,25 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting || submittedRef.current) return;
+    if (submittingRef.current || submittedRef.current) return;
+    submittingRef.current=true;
+    clearSilence();
     setIsSubmitting(true);
     voice.stop();
     // Recognition may emit the final words only after stop(). Wait for onend.
     if (recordingRef.current) {
       await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {stopResolve.current=null;resolve();}, 2000);
+        const timeout = setTimeout(() => {recognitionFailed.current=true;stopResolve.current=null;resolve();}, 2000);
         stopResolve.current=()=>{clearTimeout(timeout);resolve();};
         stopVoiceRecording();
       });
     }
-    if (!answerRef.current.trim()) {setIsSubmitting(false);return;}
+    if(recognitionFailed.current) {
+      pauseConversation();recognitionFailed.current=false;
+      setSpeechError("Recognition did not finish cleanly. Your draft is preserved; review it and submit manually.");
+      submittingRef.current=false;setIsSubmitting(false);return;
+    }
+    if (!answerRef.current.trim()) {pauseConversation();setSpeechError("No final transcript was received. Please try again or type your answer.");submittingRef.current=false;setIsSubmitting(false);return;}
     submittedRef.current=true;
 
     try {
@@ -228,20 +281,37 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
       setRecentEvaluations((prev) => [...prev, res.evaluatedQuestion]);
 
       if (res.isInterviewComplete || !res.nextQuestion) {
-        onEndInterview();
+        pauseConversation();onEndInterview();
       } else {
         setCurrentQuestion(res.nextQuestion);
         setAnswer("");
         setQuestionCount((prev) => prev + 1);
       }
     } catch (err: unknown) {
+      pauseConversation();
       setSpeechError(err instanceof Error ? err.message : "Unable to submit. Your answer is preserved; retry.");
     } finally {
-      submittedRef.current=false;
+      submittedRef.current=false;submittingRef.current=false;
       setIsSubmitting(false);
     }
   };
 
+  submitTurn.current=()=>{void handleSubmit();};
+  useEffect(()=>{
+    if(voice.error && handsFreeRef.current) pauseConversation();
+  },[voice.error]);
+  useEffect(()=>{
+    const hidden=()=>{if(document.hidden){pauseConversation();stopAudio();(recognitionRef.current as ISpeechRecognition | null)?.stop();}};
+    document.addEventListener("visibilitychange",hidden);
+    return ()=>document.removeEventListener("visibilitychange",hidden);
+  },[stopAudio]);
+  const startConversation = () => {
+    if(isSubmitting || recordingRef.current) return;
+    handsFreeRef.current=true;setHandsFree(true);setAutoPlay(false);setSpeechError("");
+    // A recovered or edited draft must be reviewed rather than silently sent.
+    if(answerRef.current.trim()) startVoiceRecording();
+    else void speakRef.current(currentQuestion,()=>{if(handsFreeRef.current)listenTurn.current();});
+  };
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -276,7 +346,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
           </div>
 
           <button
-            onClick={() => {voice.stop();stopVoiceRecording();onEndInterview();}}
+            onClick={() => {pauseConversation();voice.stop();stopVoiceRecording();onEndInterview();}}
             disabled={isSubmitting}
             className="px-3.5 py-1.5 bg-white text-neutral-950 border border-neutral-300 rounded-xl text-xs font-mono font-bold hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
@@ -312,7 +382,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
               <button
                 type="button"
                 disabled={isSubmitting || isRecording}
-                onClick={() => {void voice.speak(currentQuestion);}}
+                onClick={() => {pauseConversation();void voice.speak(currentQuestion);}}
                 className="p-2 text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 rounded-xl transition-all flex items-center gap-1.5 text-xs font-mono font-bold border border-neutral-200 cursor-pointer"
                 title="Replay Question Audio"
               >
@@ -325,16 +395,23 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
               <p>AI interview practice. Only answer content is assessed; your accent and voice are not scored.</p>
               <div className="flex flex-wrap gap-3 items-end">
                 <label className="space-y-1">Interviewer voice
-                  <select aria-label="Interviewer voice" value={voice.selectedVoice} onChange={e=>{voice.stop();voice.setSelectedVoice(e.target.value);}} className="block border rounded-lg p-2 max-w-64">
+                  <select aria-label="Interviewer voice" value={voice.selectedVoice} onChange={e=>{pauseConversation();voice.stop();stopVoiceRecording();voice.setSelectedVoice(e.target.value);}} className="block border rounded-lg p-2 max-w-64">
                     <option value="">Device default</option>
                     {voice.cloudEnabled && <optgroup label="Natural Gemini voices"><option value="cloud:Kore">Kore</option><option value="cloud:Aoede">Aoede</option><option value="cloud:Charon">Charon</option></optgroup>}
                     {voice.voices.map(v=><option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
                   </select>
                 </label>
-                <label>Speaking pace<select aria-label="Speaking pace" value={voice.rate} onChange={e=>{voice.stop();voice.setRate(Number(e.target.value));}} className="block border rounded-lg p-2"><option value="0.85">Slower</option><option value="1">Normal</option><option value="1.15">Faster</option></select></label>
-                <button type="button" onClick={voice.stop} disabled={voice.status==="idle"} className="border rounded-lg p-2 disabled:opacity-40">Stop audio</button>
+                <label>Speaking pace<select aria-label="Speaking pace" value={voice.rate} onChange={e=>{pauseConversation();voice.stop();stopVoiceRecording();voice.setRate(Number(e.target.value));}} className="block border rounded-lg p-2"><option value="0.85">Slower</option><option value="1">Normal</option><option value="1.15">Faster</option></select></label>
+                <button type="button" onClick={()=>{pauseConversation();voice.stop();stopVoiceRecording();}} disabled={voice.status==="idle"} className="border rounded-lg p-2 disabled:opacity-40">Stop audio</button>
               </div>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={autoPlay} onChange={e=>setAutoPlay(e.target.checked)}/> Play each new question automatically</label>
+              <div className="rounded-xl border p-3 space-y-2">
+                <button type="button" disabled={isSubmitting || !isSpeechSupported} onClick={()=>{if(handsFree){pauseConversation();voice.stop();stopVoiceRecording();}else startConversation();}} className="rounded-lg bg-neutral-950 text-white px-3 py-2 disabled:opacity-40">{handsFree ? "Pause hands-free" : "Start hands-free"}</button>
+                <p>Hands-free reads each question, then opens your microphone. After recognized speech pauses, your transcript is submitted automatically. Use headphones to prevent echo. Pause to review or edit; switching tabs pauses the conversation.</p>
+                <label>Answer pause<select aria-label="Answer pause" disabled={handsFree || isRecording} value={pauseSeconds} onChange={e=>{const n=Number(e.target.value);pauseRef.current=n;setPauseSeconds(n);}} className="border rounded p-2 ml-2"><option value="4">4 seconds</option><option value="6">6 seconds</option><option value="10">10 seconds</option></select></label>
+                <label className="block">Recognition language<select aria-label="Recognition language" disabled={handsFree || isRecording} value={speechLanguage} onChange={e=>{languageRef.current=e.target.value;setSpeechLanguage(e.target.value);}} className="border rounded p-2 ml-2"><option value="en-IN">English (India)</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option></select></label>
+                {handsFree && <p role="status">Hands-free active · answers send after {pauseSeconds} seconds without recognized words.</p>}
+              </div>
+              <label className="flex items-center gap-2"><input type="checkbox" disabled={handsFree} checked={autoPlay} onChange={e=>setAutoPlay(e.target.checked)}/> Play each new question automatically</label>
               <label className="flex items-center gap-2"><input type="checkbox" checked={callMode} onChange={e=>setCallMode(e.target.checked)}/> Interview call mode · save feedback until the report</label>
               <p className="text-neutral-500">{voice.selectedVoice.startsWith("cloud:") ? "Natural AI voice via Google. Questions are sent for speech generation. Audio replays are reused in this tab." : "Device voice quality depends on your browser. Select a natural Gemini voice for more conversational speech when available."}</p>
               {voice.error && <p role="alert" className="text-amber-900">{voice.error}</p>}
@@ -380,7 +457,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
                   ) : (
                     <button
                       type="button"
-                      onClick={stopVoiceRecording}
+                      onClick={()=>{pauseConversation();stopVoiceRecording();}}
                       className="px-3.5 py-1.5 bg-red-600 text-white rounded-xl text-xs font-mono font-bold hover:bg-red-700 transition-all flex items-center gap-1.5 cursor-pointer animate-pulse shadow-xs"
                     >
                       <Square className="w-3.5 h-3.5 text-white fill-white" />
@@ -398,7 +475,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
                 aria-label="Your answer"
                 disabled={isSubmitting}
                 maxLength={12000}
-                onChange={(e) => setAnswer(e.target.value)}
+                onChange={(e) => {if(handsFreeRef.current){pauseConversation();stopVoiceRecording();}setAnswer(e.target.value);}}
                 rows={6}
                 placeholder={
                   isRecording
@@ -409,7 +486,7 @@ export function InterviewRoom({ sessionId, startedAt, durationMinutes, answeredQ
               />
 
               {interimTranscript && <p role="status" className="text-sm text-neutral-500">Hearing: {interimTranscript}</p>}
-              <p className="text-xs text-neutral-500">{!isSpeechSupported && "Voice input is unavailable in this browser. You can type your answer. "}Microphone starts only when you choose Speak answer. Your browser may use its speech service to transcribe audio. Vantory saves the submitted transcript, not a microphone recording. Review it before submitting.</p>
+              <p className="text-xs text-neutral-500">{!isSpeechSupported && "Voice input is unavailable in this browser. You can type your answer. "}Microphone starts when you choose Speak answer, or after question playback in hands-free mode. Your browser may use its speech service to transcribe audio. Vantory saves the submitted transcript, not a microphone recording. Review it before submitting.</p>
               <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500">
                 <span>{candidateAnswer.trim().split(/\s+/).filter(Boolean).length} words</span>
                 <span>Voice input is transcribed live above</span>

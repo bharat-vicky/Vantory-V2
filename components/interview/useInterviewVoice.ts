@@ -26,7 +26,7 @@ export function useInterviewVoice(sessionId?:string) {
     const urls=cache.current;
     return ()=>{controller.abort();synth?.removeEventListener("voiceschanged",update);stop();urls.forEach(url=>URL.revokeObjectURL(url));urls.clear();};
   },[sessionId,stop]);
-  const speak=useCallback(async(question:{id:string;questionText:string})=>{
+  const speak=useCallback(async(question:{id:string;questionText:string}, onComplete?:()=>void)=>{
     stop();setError("");const token=generation.current;
     if(selectedVoice.startsWith("cloud:")) {
       setStatus("loading");
@@ -42,7 +42,7 @@ export function useInterviewVoice(sessionId?:string) {
         }
         if(token!==generation.current)return;
         const player=new Audio(url);audio.current=player;player.playbackRate=rate;
-        player.onended=()=>{if(token===generation.current)setStatus("idle");};
+        player.onended=()=>{if(token===generation.current){generation.current++;setStatus("idle");onComplete?.();}};
         player.onerror=()=>{if(token===generation.current){setStatus("idle");setError("Audio could not play. Try a device voice.");}};
         await player.play();if(token===generation.current)setStatus("speaking");
       } catch(e) {if(token===generation.current){setStatus("idle");setError(e instanceof Error ? e.message : "Voice unavailable. Choose a device voice.");}}
@@ -53,7 +53,7 @@ export function useInterviewVoice(sessionId?:string) {
     utterance.voice=voices.find(v=>v.voiceURI===selectedVoice) || voices.find(v=>v.default) || voices[0] || null;
     utterance.lang=utterance.voice?.lang || "en-US";utterance.rate=rate;
     utterance.onstart=()=>{if(token===generation.current)setStatus("speaking");};
-    utterance.onend=()=>{if(token===generation.current)setStatus("idle");};
+    utterance.onend=()=>{if(token===generation.current){generation.current++;setStatus("idle");onComplete?.();}};
     utterance.onerror=()=>{if(token===generation.current){setStatus("idle");setError("Audio paused. Click Play question to try again.");}};
     window.speechSynthesis.speak(utterance);
   },[selectedVoice,rate,voices,sessionId,stop]);
